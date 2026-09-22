@@ -1,9 +1,5 @@
+```mermaid
 erDiagram
-
-    %% =========================================================
-    %% AUTHENTICATION / USER / RBAC
-    %% =========================================================
-
     USER {
         bigint id PK
         varchar name
@@ -37,15 +33,15 @@ erDiagram
     }
 
     USER_ROLE {
-        bigint user_id PK,FK
-        bigint role_id PK,FK
+        bigint user_id PK, FK
+        bigint role_id PK, FK
         datetime assigned_at
         bigint assigned_by FK
     }
 
     ROLE_PERMISSION {
-        bigint role_id PK,FK
-        bigint permission_id PK,FK
+        bigint role_id PK, FK
+        bigint permission_id PK, FK
         datetime assigned_at
     }
 
@@ -57,11 +53,6 @@ erDiagram
         datetime revoked_at
         datetime created_at
     }
-
-
-    %% =========================================================
-    %% ORGANIZATION / WORKSPACE
-    %% =========================================================
 
     ORGANIZATION {
         bigint id PK
@@ -86,17 +77,12 @@ erDiagram
     }
 
     WORKSPACE_MEMBER {
-        bigint workspace_id PK,FK
-        bigint user_id PK,FK
+        bigint workspace_id PK, FK
+        bigint user_id PK, FK
         varchar status
         bigint invited_by FK
         datetime joined_at
     }
-
-
-    %% =========================================================
-    %% COLLECTIONS / FOLDERS / REQUESTS
-    %% =========================================================
 
     COLLECTION {
         bigint id PK
@@ -165,11 +151,6 @@ erDiagram
         int sort_order
     }
 
-
-    %% =========================================================
-    %% AUTHENTICATION CONFIGURATION
-    %% =========================================================
-
     AUTH_CONFIG {
         bigint id PK
         varchar name
@@ -181,19 +162,14 @@ erDiagram
     }
 
     REQUEST_AUTH {
-        bigint request_id PK,FK
+        bigint request_id PK, FK
         bigint auth_config_id FK
     }
 
     COLLECTION_AUTH {
-        bigint collection_id PK,FK
+        bigint collection_id PK, FK
         bigint auth_config_id FK
     }
-
-
-    %% =========================================================
-    %% ENVIRONMENT / VARIABLES
-    %% =========================================================
 
     ENVIRONMENT {
         bigint id PK
@@ -202,7 +178,7 @@ erDiagram
         varchar slug
         varchar description
         boolean active
-        datetime created_by FK
+        bigint created_by FK
         datetime created_at
         datetime updated_at
     }
@@ -227,11 +203,6 @@ erDiagram
         boolean is_secret
         boolean enabled
     }
-
-
-    %% =========================================================
-    %% TESTING
-    %% =========================================================
 
     TEST_SUITE {
         bigint id PK
@@ -267,11 +238,6 @@ erDiagram
         int sort_order
     }
 
-
-    %% =========================================================
-    %% SCRIPTS
-    %% =========================================================
-
     PRE_REQUEST_SCRIPT {
         bigint id PK
         bigint request_id FK
@@ -293,11 +259,6 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-
-
-    %% =========================================================
-    %% WORKFLOW AUTOMATION
-    %% =========================================================
 
     WORKFLOW {
         bigint id PK
@@ -329,11 +290,6 @@ erDiagram
         varchar source_type
         text source_path
     }
-
-
-    %% =========================================================
-    %% EXECUTION / HISTORY
-    %% =========================================================
 
     REQUEST_EXECUTION {
         bigint id PK
@@ -375,11 +331,6 @@ erDiagram
         bigint duration_ms
     }
 
-
-    %% =========================================================
-    %% AI CHAT / AGENT
-    %% =========================================================
-
     AI_CHAT_SESSION {
         bigint id PK
         bigint workspace_id FK
@@ -417,11 +368,6 @@ erDiagram
         datetime created_at
     }
 
-
-    %% =========================================================
-    %% AUDIT
-    %% =========================================================
-
     AUDIT_LOG {
         bigint id PK
         bigint user_id FK
@@ -435,10 +381,6 @@ erDiagram
         datetime created_at
     }
 
-
-    %% =========================================================
-    %% RELATIONSHIPS
-    %% =========================================================
 
     USER ||--o{ USER_ROLE : has
     ROLE ||--o{ USER_ROLE : assigned_to
@@ -515,3 +457,4 @@ erDiagram
 
     USER ||--o{ AUDIT_LOG : generates
     WORKSPACE ||--o{ AUDIT_LOG : contains
+```
