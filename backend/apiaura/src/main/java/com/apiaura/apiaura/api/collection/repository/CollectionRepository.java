@@ -1,7 +1,7 @@
 package com.apiaura.apiaura.api.collection.repository;
 
 import com.apiaura.apiaura.api.collection.entity.Collection;
-import com.apiaura.apiaura.api.collection.entity.CollectionFolder;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -37,10 +37,5 @@ public interface CollectionRepository extends JpaRepository<Collection, UUID> {
             """)
     Optional<Collection> findDetailedById(
             @Param("id") UUID id
-    );
-
-    Optional<CollectionFolder> findByIdAndCollectionId(
-            UUID id,
-            UUID collectionId
     );
 }

@@ -9,6 +9,7 @@ import com.apiaura.apiaura.foundation.common.response.ApiResponse;
 import com.apiaura.apiaura.foundation.common.security.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -50,7 +51,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ApiResponse<Void> logout(
-            @Valid @RequestBody RefreshTokenRequest request
+            @Valid @RequestBody @NonNull RefreshTokenRequest request
     ) {
 
         authService.logout(request.getRefreshToken());

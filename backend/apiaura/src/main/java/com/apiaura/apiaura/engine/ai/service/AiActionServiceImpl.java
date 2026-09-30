@@ -12,8 +12,8 @@ import com.apiaura.apiaura.engine.ai.tool.AiToolContext;
 import com.apiaura.apiaura.engine.ai.tool.AiToolResult;
 import com.apiaura.apiaura.foundation.common.exception.ForbiddenException;
 import com.apiaura.apiaura.foundation.common.exception.ResourceNotFoundException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 

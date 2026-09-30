@@ -7,7 +7,7 @@ import com.apiaura.apiaura.api.environment.dto.request.CreateEnvironmentRequest;
 import com.apiaura.apiaura.api.environment.dto.request.UpdateEnvironmentRequest;
 import com.apiaura.apiaura.api.environment.dto.response.EnvironmentResponse;
 import com.apiaura.apiaura.api.environment.entity.Environment;
-import com.apiaura.apiaura.environment.enums.EnvironmentStatus;
+import com.apiaura.apiaura.foundation.common.enums.EnvironmentStatus;
 import com.apiaura.apiaura.api.environment.repository.EnvironmentRepository;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;

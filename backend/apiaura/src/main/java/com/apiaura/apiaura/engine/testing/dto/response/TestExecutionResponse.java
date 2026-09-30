@@ -1,7 +1,7 @@
 package com.apiaura.apiaura.engine.testing.dto.response;
 
 import com.apiaura.apiaura.engine.testing.entity.TestExecution;
-import com.apiaura.apiaura.testing.enums.TestExecutionStatus;
+import com.apiaura.apiaura.engine.testing.enums.TestExecutionStatus;
 
 import java.time.Instant;
 import java.util.UUID;

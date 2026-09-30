@@ -2,7 +2,7 @@ package com.apiaura.apiaura.api.history.controller;
 
 import com.apiaura.apiaura.foundation.common.response.ApiResponse;
 import com.apiaura.apiaura.foundation.common.response.PageResponse;
-import com.apiaura.apiaura.execution.enums.ExecutionStatus;
+import com.apiaura.apiaura.foundation.common.enums.ExecutionStatus;
 import com.apiaura.apiaura.api.history.dto.response.RequestHistoryDetailResponse;
 import com.apiaura.apiaura.api.history.dto.response.RequestHistoryResponse;
 import com.apiaura.apiaura.api.history.service.RequestHistoryService;

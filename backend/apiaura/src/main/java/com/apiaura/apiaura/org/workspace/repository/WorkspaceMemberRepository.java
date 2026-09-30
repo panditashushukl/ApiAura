@@ -30,4 +30,10 @@ public interface WorkspaceMemberRepository
     );
 
     long countByWorkspaceId(UUID workspaceId);
+
+    boolean existsByWorkspaceIdAndUserIdAndStatus(
+            UUID workspaceId,
+            UUID userId,
+            String status // or MemberStatus status if your entity uses an enum
+    );
 }

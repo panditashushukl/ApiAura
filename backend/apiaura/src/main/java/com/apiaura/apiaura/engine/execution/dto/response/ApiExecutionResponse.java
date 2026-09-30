@@ -1,7 +1,7 @@
 package com.apiaura.apiaura.engine.execution.dto.response;
 
 import com.apiaura.apiaura.engine.execution.entity.RequestExecution;
-import com.apiaura.apiaura.execution.enums.ExecutionStatus;
+import com.apiaura.apiaura.foundation.common.enums.ExecutionStatus;
 
 import java.time.Instant;
 import java.util.UUID;

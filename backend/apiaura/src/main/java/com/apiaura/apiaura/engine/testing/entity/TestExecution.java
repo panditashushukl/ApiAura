@@ -3,7 +3,7 @@ package com.apiaura.apiaura.engine.testing.entity;
 import com.apiaura.apiaura.foundation.common.entity.BaseEntity;
 import com.apiaura.apiaura.api.environment.entity.Environment;
 import com.apiaura.apiaura.engine.execution.entity.RequestExecution;
-import com.apiaura.apiaura.testing.enums.TestExecutionStatus;
+import com.apiaura.apiaura.engine.testing.enums.TestExecutionStatus;
 import com.apiaura.apiaura.identity.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;

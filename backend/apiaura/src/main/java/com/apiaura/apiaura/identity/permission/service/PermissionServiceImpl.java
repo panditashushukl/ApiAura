@@ -7,6 +7,7 @@ import com.apiaura.apiaura.identity.permission.dto.response.PermissionResponse;
 import com.apiaura.apiaura.identity.permission.entity.Permission;
 import com.apiaura.apiaura.identity.permission.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +24,7 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     @Transactional
     public PermissionResponse create(
-            CreatePermissionRequest request
+            @NonNull CreatePermissionRequest request
     ) {
 
         if (permissionRepository.existsByCode(request.getCode())) {

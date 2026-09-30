@@ -1,4 +1,4 @@
-package com.apiaura.apiaura.api.workflow.repositories;
+package com.apiaura.apiaura.api.workflow.repository;
 
 import com.apiaura.apiaura.api.workflow.entity.WorkflowExecution;
 import org.springframework.data.domain.Page;

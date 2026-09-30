@@ -1,6 +1,6 @@
 package com.apiaura.apiaura.api.environment.dto.request;
 
-import com.apiaura.apiaura.environment.enums.EnvironmentStatus;
+import com.apiaura.apiaura.foundation.common.enums.EnvironmentStatus;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 

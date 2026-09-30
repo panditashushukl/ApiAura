@@ -15,6 +15,7 @@ import com.apiaura.apiaura.identity.user.dto.response.UserResponse;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,7 +42,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResponse register(@NonNull RegisterRequest request) {
 
         String email = request.getEmail()
                 .trim()
@@ -73,7 +74,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(@NonNull LoginRequest request) {
 
         String email = request.getEmail()
                 .trim()
@@ -102,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse refresh(
-            RefreshTokenRequest request
+            @NonNull RefreshTokenRequest request
     ) {
 
         String hash = hash(request.getRefreshToken());

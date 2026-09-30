@@ -2,6 +2,7 @@ package com.apiaura.apiaura.api.workflow.service;
 
 import com.apiaura.apiaura.api.workflow.entity.*;
 import com.apiaura.apiaura.api.workflow.enums.WorkflowStatus;
+import com.apiaura.apiaura.engine.execution.dto.request.ExecuteApiRequest;
 import com.apiaura.apiaura.engine.execution.entity.RequestExecution;
 import com.apiaura.apiaura.foundation.common.exception.BadRequestException;
 import com.apiaura.apiaura.foundation.common.exception.ForbiddenException;
@@ -15,12 +16,11 @@ import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import com.apiaura.apiaura.api.workflow.dto.request.ExecuteWorkflowRequest;
 import com.apiaura.apiaura.api.workflow.dto.response.WorkflowExecutionResponse;
-import com.apiaura.apiaura.workflow.entity.*;
 import com.apiaura.apiaura.api.workflow.enums.WorkflowExecutionStatus;
-import com.apiaura.apiaura.workflow.repository.*;
+import com.apiaura.apiaura.api.workflow.repository.*;
 import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -193,12 +193,10 @@ public class WorkflowServiceImpl
 
             try {
 
-                ApiExecutionResponse result =
-                        apiExecutionService.execute(
-                                step.getRequest().getId(),
-                                environment.getId(),
-                                variables
-                        );
+                ApiExecutionResponse result = apiExecutionService.execute(
+                        step.getRequest().getId(),
+                        new ExecuteApiRequest(environment.getId(), variables)
+                );
 
                 stepExecution.setRequestExecution(
                         findRequestExecution(

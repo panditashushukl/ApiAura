@@ -1,10 +1,10 @@
 package com.apiaura.apiaura.engine.ai.tool;
 
 import com.apiaura.apiaura.ai.enums.AiActionRisk;
-import com.apiaura.apiaura.request.dto.request.CreateApiRequestRequest;
+import com.apiaura.apiaura.api.request.dto.request.CreateApiRequest;
 import com.apiaura.apiaura.api.request.dto.response.ApiRequestResponse;
-import com.apiaura.apiaura.request.enums.BodyType;
-import com.apiaura.apiaura.request.enums.HttpMethod;
+import com.apiaura.apiaura.foundation.common.enums.BodyType;
+import com.apiaura.apiaura.foundation.common.enums.HttpMethod;
 import com.apiaura.apiaura.api.request.service.ApiRequestService;
 import org.springframework.stereotype.Component;
 
@@ -47,18 +47,18 @@ public class CreateApiRequestTool
     @Override
     public Map<String, Object> getInputSchema() {
 
-        return Map.of(
-                "collectionId", "UUID - required",
-                "name", "string - required",
-                "method", "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS",
-                "url", "string - required",
-                "description", "string - optional",
-                "documentation", "string - optional",
-                "bodyType", "NONE|JSON|FORM_DATA|URL_ENCODED|RAW|XML",
-                "body", "string - optional",
-                "enabled", "boolean",
-                "folderId", "UUID - optional",
-                "parentRequestId", "UUID - optional"
+        return Map.ofEntries(
+                Map.entry("collectionId", "UUID - required"),
+                Map.entry("name", "string - required"),
+                Map.entry("method", "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS"),
+                Map.entry("url", "string - required"),
+                Map.entry("description", "string - optional"),
+                Map.entry("documentation", "string - optional"),
+                Map.entry("bodyType", "NONE|JSON|FORM_DATA|URL_ENCODED|RAW|XML"),
+                Map.entry("body", "string - optional"),
+                Map.entry("enabled", "boolean"),
+                Map.entry("folderId", "UUID - optional"),
+                Map.entry("parentRequestId", "UUID - optional")
         );
     }
 
@@ -147,8 +147,8 @@ public class CreateApiRequestTool
              * This constructor follows the CreateApiRequest
              * structure already established in Apiaura.
              */
-            CreateApiRequestRequest request =
-                    new CreateApiRequestRequest(
+            CreateApiRequest request =
+                    new CreateApiRequest(
                             name,
                             method,
                             url,
@@ -173,6 +173,7 @@ public class CreateApiRequestTool
             ApiRequestResponse response =
                     apiRequestService.create(
                             collectionId,
+                            context.userId(),
                             request
                     );
 

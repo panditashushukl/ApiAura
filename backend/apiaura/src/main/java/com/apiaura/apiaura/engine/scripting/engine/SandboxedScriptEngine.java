@@ -17,7 +17,7 @@ public class SandboxedScriptEngine
     private final long maxExecutionTimeMs;
 
     public SandboxedScriptEngine(
-            @Value("${security.scripting.max-execution-time-ms:1000}")
+            @org.springframework.beans.factory.annotation.Value("${security.scripting.max-execution-time-ms:1000}")
             long maxExecutionTimeMs
     ) {
         this.maxExecutionTimeMs =

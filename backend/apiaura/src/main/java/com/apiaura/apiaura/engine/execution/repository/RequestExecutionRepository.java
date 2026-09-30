@@ -1,7 +1,7 @@
 package com.apiaura.apiaura.engine.execution.repository;
 
 import com.apiaura.apiaura.engine.execution.entity.RequestExecution;
-import com.apiaura.apiaura.execution.enums.ExecutionStatus;
+import com.apiaura.apiaura.foundation.common.enums.ExecutionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -30,4 +30,6 @@ public interface RequestExecutionRepository
     long countByRequestId(UUID requestId);
 
     long countByStatus(ExecutionStatus status);
+
+
 }

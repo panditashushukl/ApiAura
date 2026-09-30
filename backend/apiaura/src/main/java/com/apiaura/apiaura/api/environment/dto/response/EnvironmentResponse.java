@@ -1,7 +1,7 @@
 package com.apiaura.apiaura.api.environment.dto.response;
 
 import com.apiaura.apiaura.api.environment.entity.Environment;
-import com.apiaura.apiaura.environment.enums.EnvironmentStatus;
+import com.apiaura.apiaura.foundation.common.enums.EnvironmentStatus;
 
 import java.time.Instant;
 import java.util.UUID;

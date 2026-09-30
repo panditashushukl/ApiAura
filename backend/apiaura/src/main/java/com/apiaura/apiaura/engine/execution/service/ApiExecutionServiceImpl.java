@@ -26,6 +26,7 @@ import com.apiaura.apiaura.engine.scripting.service.ScriptExecutionService;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,12 +38,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
+import static com.apiaura.apiaura.foundation.common.enums.AuthType.*;
+
 @Service
 @Transactional
 public class ApiExecutionServiceImpl implements ApiExecutionService {
 
-    private static final Duration REQUEST_TIMEOUT =
-            Duration.ofSeconds(30);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private final ApiRequestRepository apiRequestRepository;
     private final EnvironmentRepository environmentRepository;
@@ -52,7 +54,6 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
     private final ObjectMapper objectMapper;
     private final UrlSecurityValidator urlSecurityValidator;
     private final ScriptExecutionService scriptExecutionService;
-
     private final HttpClient httpClient;
 
     public ApiExecutionServiceImpl(
@@ -85,21 +86,13 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             UUID requestId,
             ExecuteApiRequest executeRequest
     ) {
-
         UUID userId = SecurityUtils.getCurrentUserId();
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found")
-                );
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        ApiRequest apiRequest =
-                apiRequestRepository.findDetailedById(requestId)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "API request not found"
-                                )
-                        );
+        ApiRequest apiRequest = apiRequestRepository.findDetailedById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("API request not found"));
 
         validateWorkspaceAccess(
                 apiRequest.getCollection().getWorkspace().getId(),
@@ -107,31 +100,17 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
         );
 
         if (!apiRequest.isEnabled()) {
-            throw new BadRequestException(
-                    "API request is disabled"
-            );
+            throw new BadRequestException("API request is disabled");
         }
 
-        Environment environment =
-                environmentRepository
-                        .findByIdAndWorkspaceId(
-                                executeRequest.environmentId(),
-                                apiRequest
-                                        .getCollection()
-                                        .getWorkspace()
-                                        .getId()
-                        )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Environment not found"
-                                )
-                        );
+        Environment environment = environmentRepository
+                .findByIdAndWorkspaceId(
+                        executeRequest.environmentId(),
+                        apiRequest.getCollection().getWorkspace().getId()
+                )
+                .orElseThrow(() -> new ResourceNotFoundException("Environment not found"));
 
-        return executeRequest(
-                apiRequest,
-                environment,
-                user
-        );
+        return executeRequest(apiRequest, environment, user);
     }
 
     private ApiExecutionResponse executeRequest(
@@ -139,309 +118,129 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Environment environment,
             User user
     ) {
-
-        RequestExecution execution =
-                new RequestExecution();
-
+        RequestExecution execution = new RequestExecution();
         execution.setRequest(apiRequest);
         execution.setEnvironment(environment);
         execution.setExecutedBy(user);
-        execution.setMethod(
-                apiRequest.getMethod().name()
-        );
+        execution.setMethod(apiRequest.getMethod().name());
 
         Instant start = Instant.now();
 
         try {
+            Map<String, String> variables = buildVariables(apiRequest, environment);
 
-            Map<String, String> variables =
-                    buildVariables(apiRequest, environment);
+            // 1. PRE-REQUEST SCRIPT
+            ScriptExecutionContext preContext = ScriptExecutionContext.builder()
+                    .variables(variables)
+                    .requestUrl(VariableResolver.resolve(apiRequest.getUrl(), variables))
+                    .requestMethod(apiRequest.getMethod().name())
+                    .requestHeaders(Map.of())
+                    .requestBody(VariableResolver.resolve(apiRequest.getBody(), variables))
+                    .build();
 
-            ScriptExecutionContext preContext =
-                    ScriptExecutionContext.builder()
-                            .variables(variables)
-                            .requestUrl(
-                                    VariableResolver.resolve(
-                                            apiRequest.getUrl(),
-                                            variables
-                                    )
-                            )
-                            .requestMethod(
-                                    apiRequest.getMethod().name()
-                            )
-                            .requestHeaders(
-                                    Map.of()
-                            )
-                            .requestBody(
-                                    VariableResolver.resolve(
-                                            apiRequest.getBody(),
-                                            variables
-                                    )
-                            )
-                            .build();
-
-            if (apiRequest.getPreRequestScript() != null
-                    && apiRequest
-                    .getPreRequestScript()
-                    .isEnabled()) {
-
-                ScriptExecutionResult result =
-                        scriptExecutionService
-                                .executePreRequestScript(
-                                        apiRequest
-                                                .getPreRequestScript()
-                                                .getScript(),
-                                        preContext
-                                );
+            if (apiRequest.getPreRequestScript() != null && apiRequest.getPreRequestScript().isEnabled()) {
+                ScriptExecutionResult result = scriptExecutionService.executePreRequestScript(
+                        apiRequest.getPreRequestScript().getScript(),
+                        preContext
+                );
 
                 if (!result.isSuccessful()) {
-
-                    execution.setStatus(
-                            ExecutionStatus.FAILED
-                    );
-
-                    execution.setErrorMessage(
-                            "Pre-request script failed: "
-                                    + result.getErrorMessage()
-                    );
-
+                    execution.setStatus(ExecutionStatus.FAILED);
+                    execution.setErrorMessage("Pre-request script failed: " + result.getErrorMessage());
                     execution.setDurationMs(0L);
-
-                    return ApiExecutionResponse.from(
-                            executionRepository.save(
-                                    execution
-                            )
-                    );
+                    return ApiExecutionResponse.from(executionRepository.save(execution));
                 }
 
-                variables =
-                        result.getVariables();
+                variables = result.getVariables();
             }
 
-            String url = buildUrl(
-                    apiRequest,
-                    variables
-            );
-
+            // 2. RESOLVE & VALIDATE URL
+            String url = buildUrl(apiRequest, variables);
             execution.setResolvedUrl(url);
-
             urlSecurityValidator.validate(url);
 
-            Map<String, String> headers =
-                    buildHeaders(
-                            apiRequest,
-                            variables
-                    );
+            // 3. BUILD HEADERS & AUTH
+            Map<String, String> headers = buildHeaders(apiRequest, variables);
+            applyAuthentication(apiRequest, headers, variables);
 
-            applyAuthentication(
-                    apiRequest,
-                    headers,
-                    variables
+            // 4. BUILD REQUEST BODY
+            String requestBody = VariableResolver.resolve(apiRequest.getBody(), variables);
+            execution.setRequestHeaders(serialize(headers));
+            execution.setRequestBody(requestBody);
+
+            // 5. ASSEMBLE HTTP REQUEST
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(REQUEST_TIMEOUT);
+
+            headers.forEach(requestBuilder::header);
+
+            HttpRequest.BodyPublisher bodyPublisher = createBodyPublisher(apiRequest, requestBody);
+            requestBuilder.method(apiRequest.getMethod().name(), bodyPublisher);
+
+            // 6. EXECUTE CALL
+            HttpResponse<String> response = httpClient.send(
+                    requestBuilder.build(),
+                    HttpResponse.BodyHandlers.ofString()
             );
 
-            String requestBody =
-                    VariableResolver.resolve(
-                            apiRequest.getBody(),
-                            variables
-                    );
+            long duration = Duration.between(start, Instant.now()).toMillis();
 
-            execution.setRequestHeaders(
-                    serialize(headers)
-            );
+            // 7. EXTRACT RESPONSE HEADERS
+            Map<String, Object> responseHeaders = new LinkedHashMap<>();
+            response.headers().map().forEach(responseHeaders::put);
 
-            execution.setRequestBody(
-                    requestBody
-            );
+            // 8. POST-REQUEST SCRIPT (Now response is in scope)
+            ScriptExecutionContext postContext = ScriptExecutionContext.builder()
+                    .variables(variables)
+                    .requestUrl(url)
+                    .requestMethod(apiRequest.getMethod().name())
+                    .requestHeaders(headers)
+                    .requestBody(requestBody)
+                    .responseStatus(response.statusCode())
+                    .responseHeaders(responseHeaders)
+                    .responseBody(response.body())
+                    .build();
 
-            HttpRequest.Builder requestBuilder =
-                    HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .timeout(REQUEST_TIMEOUT);
-
-            Map<String, Object> responseHeaders =
-                    new LinkedHashMap<>();
-
-            response.headers()
-                    .map()
-                    .forEach(
-                            (key, values) ->
-                                    responseHeaders.put(
-                                            key,
-                                            values
-                                    )
-                    );
-
-            ScriptExecutionContext postContext =
-                    ScriptExecutionContext.builder()
-                            .variables(variables)
-                            .requestUrl(url)
-                            .requestMethod(
-                                    apiRequest.getMethod().name()
-                            )
-                            .requestHeaders(headers)
-                            .requestBody(requestBody)
-                            .responseStatus(
-                                    response.statusCode()
-                            )
-                            .responseHeaders(responseHeaders)
-                            .responseBody(response.body())
-                            .build();
-
-            if (apiRequest.getPostRequestScript() != null
-                    && apiRequest
-                    .getPostRequestScript()
-                    .isEnabled()) {
-
-                ScriptExecutionResult result =
-                        scriptExecutionService
-                                .executePostRequestScript(
-                                        apiRequest
-                                                .getPostRequestScript()
-                                                .getScript(),
-                                        postContext
-                                );
+            if (apiRequest.getPostRequestScript() != null && apiRequest.getPostRequestScript().isEnabled()) {
+                ScriptExecutionResult result = scriptExecutionService.executePostRequestScript(
+                        apiRequest.getPostRequestScript().getScript(),
+                        postContext
+                );
 
                 if (!result.isSuccessful()) {
-
-                    execution.setErrorMessage(
-                            "Post-request script failed: "
-                                    + result.getErrorMessage()
-                    );
+                    execution.setErrorMessage("Post-request script failed: " + result.getErrorMessage());
                 }
             }
 
-            headers.forEach(
-                    (key, value) ->
-                            requestBuilder.header(
-                                    key,
-                                    value
-                            )
-            );
-
-            HttpRequest.BodyPublisher bodyPublisher =
-                    createBodyPublisher(
-                            apiRequest,
-                            requestBody
-                    );
-
-            requestBuilder.method(
-                    apiRequest.getMethod().name(),
-                    bodyPublisher
-            );
-
-            HttpResponse<String> response =
-                    httpClient.send(
-                            requestBuilder.build(),
-                            HttpResponse.BodyHandlers.ofString()
-                    );
-
-            long duration =
-                    Duration.between(
-                            start,
-                            Instant.now()
-                    ).toMillis();
-
-            execution.setResponseStatus(
-                    response.statusCode()
-            );
-
-            execution.setResponseHeaders(
-                    serializeResponseHeaders(
-                            response.headers()
-                                    .map()
-                    )
-            );
-
-            execution.setResponseBody(
-                    response.body()
-            );
-
-            execution.setResponseSizeBytes(
-                    (long) response.body()
-                            .getBytes()
-                            .length
-            );
-
+            // 9. POPULATE EXECUTION RECORD
+            execution.setResponseStatus(response.statusCode());
+            execution.setResponseHeaders(serializeResponseHeaders(response.headers().map()));
+            execution.setResponseBody(response.body());
+            execution.setResponseSizeBytes((long) response.body().getBytes().length);
             execution.setDurationMs(duration);
-
-            execution.setStatus(
-                    resolveStatus(response.statusCode())
-            );
+            execution.setStatus(resolveStatus(response.statusCode()));
 
         } catch (HttpTimeoutException exception) {
-
-            execution.setStatus(
-                    ExecutionStatus.TIMEOUT
-            );
-
-            execution.setErrorMessage(
-                    "Request timed out"
-            );
-
-            execution.setDurationMs(
-                    Duration.between(
-                            start,
-                            Instant.now()
-                    ).toMillis()
-            );
-
+            execution.setStatus(ExecutionStatus.TIMEOUT);
+            execution.setErrorMessage("Request timed out");
+            execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (IOException exception) {
-
-            execution.setStatus(
-                    ExecutionStatus.NETWORK_ERROR
-            );
-
-            execution.setErrorMessage(
-                    exception.getMessage()
-            );
-
-            execution.setDurationMs(
-                    Duration.between(
-                            start,
-                            Instant.now()
-                    ).toMillis()
-            );
-
+            execution.setStatus(ExecutionStatus.NETWORK_ERROR);
+            execution.setErrorMessage(exception.getMessage());
+            execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (InterruptedException exception) {
-
             Thread.currentThread().interrupt();
-
-            execution.setStatus(
-                    ExecutionStatus.FAILED
-            );
-
-            execution.setErrorMessage(
-                    "Request execution interrupted"
-            );
-
-            execution.setDurationMs(
-                    Duration.between(
-                            start,
-                            Instant.now()
-                    ).toMillis()
-            );
-
+            execution.setStatus(ExecutionStatus.FAILED);
+            execution.setErrorMessage("Request execution interrupted");
+            execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (Exception exception) {
-
-            execution.setStatus(
-                    ExecutionStatus.FAILED
-            );
-
-            execution.setErrorMessage(
-                    exception.getMessage()
-            );
-
-            execution.setDurationMs(
-                    Duration.between(
-                            start,
-                            Instant.now()
-                    ).toMillis()
-            );
+            execution.setStatus(ExecutionStatus.FAILED);
+            execution.setErrorMessage(exception.getMessage());
+            execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         }
 
-        RequestExecution saved =
-                executionRepository.save(execution);
-
+        RequestExecution saved = executionRepository.save(execution);
         return ApiExecutionResponse.from(saved);
     }
 
@@ -449,118 +248,54 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             ApiRequest apiRequest,
             Environment environment
     ) {
-
-        Collection<CollectionVariable> collectionVariables =
-                apiRequest
-                        .getCollection()
-                        .getVariables();
-
-        Collection<EnvironmentVariable> environmentVariables =
-                environment.getVariables();
-
-        return VariableResolver.buildVariables(
-                collectionVariables,
-                environmentVariables
-        );
+        Collection<CollectionVariable> collectionVariables = apiRequest.getCollection().getVariables();
+        Collection<EnvironmentVariable> environmentVariables = environment.getVariables();
+        return VariableResolver.buildVariables(collectionVariables, environmentVariables);
     }
 
     private String buildUrl(
             ApiRequest request,
             Map<String, String> variables
     ) {
+        String url = VariableResolver.resolve(request.getUrl(), variables);
 
-        String url =
-                VariableResolver.resolve(
-                        request.getUrl(),
-                        variables
-                );
-
-        /*
-         * Path parameters
-         */
         if (request.getPathParameters() != null) {
-
-            for (PathParameter parameter :
-                    request.getPathParameters()) {
-
+            for (PathParameter parameter : request.getPathParameters()) {
                 if (!parameter.isEnabled()) {
                     continue;
                 }
-
-                String value =
-                        VariableResolver.resolve(
-                                parameter.getParamValue(),
-                                variables
-                        );
-
-                url = url.replace(
-                        "{" + parameter.getParamKey() + "}",
-                        value
-                );
+                String value = VariableResolver.resolve(parameter.getParamValue(), variables);
+                url = url.replace("{" + parameter.getParamKey() + "}", value);
             }
         }
 
-        /*
-         * Query parameters
-         */
-        List<String> queryParams =
-                new ArrayList<>();
-
+        List<String> queryParams = new ArrayList<>();
         if (request.getQueryParameters() != null) {
-
-            for (QueryParameter parameter :
-                    request.getQueryParameters()) {
-
+            for (QueryParameter parameter : request.getQueryParameters()) {
                 if (!parameter.isEnabled()) {
                     continue;
                 }
-
-                String key =
-                        parameter.getParamKey();
-
-                String value =
-                        VariableResolver.resolve(
-                                parameter.getParamValue(),
-                                variables
-                        );
-
-                queryParams.add(
-                        encode(key) +
-                                "=" +
-                                encode(value)
-                );
+                String key = parameter.getParamKey();
+                String value = VariableResolver.resolve(parameter.getParamValue(), variables);
+                queryParams.add(encode(key) + "=" + encode(value));
             }
         }
 
         if (!queryParams.isEmpty()) {
-
-            String separator =
-                    url.contains("?")
-                            ? "&"
-                            : "?";
-
-            url += separator +
-                    String.join("&", queryParams);
+            String separator = url.contains("?") ? "&" : "?";
+            url += separator + String.join("&", queryParams);
         }
 
         URI uri;
-
         try {
             uri = URI.create(url);
         } catch (IllegalArgumentException exception) {
-            throw new BadRequestException(
-                    "Invalid request URL"
-            );
+            throw new BadRequestException("Invalid request URL");
         }
 
         String scheme = uri.getScheme();
-
-        if (!"http".equalsIgnoreCase(scheme)
-                && !"https".equalsIgnoreCase(scheme)) {
-
-            throw new BadRequestException(
-                    "Only HTTP and HTTPS URLs are supported"
-            );
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new BadRequestException("Only HTTP and HTTPS URLs are supported");
         }
 
         return url;
@@ -570,30 +305,17 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             ApiRequest request,
             Map<String, String> variables
     ) {
-
-        Map<String, String> headers =
-                new LinkedHashMap<>();
-
+        Map<String, String> headers = new LinkedHashMap<>();
         if (request.getHeaders() == null) {
             return headers;
         }
 
-        for (RequestHeader header :
-                request.getHeaders()) {
-
+        for (RequestHeader header : request.getHeaders()) {
             if (!header.isEnabled()) {
                 continue;
             }
-
-            String key =
-                    header.getHeaderKey();
-
-            String value =
-                    VariableResolver.resolve(
-                            header.getHeaderValue(),
-                            variables
-                    );
-
+            String key = header.getHeaderKey();
+            String value = VariableResolver.resolve(header.getHeaderValue(), variables);
             headers.put(key, value);
         }
 
@@ -605,73 +327,32 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Map<String, String> headers,
             Map<String, String> variables
     ) {
-
-        if (request.getRequestAuth() == null) {
+        if (request.getAuth() == null || request.getAuth().getAuthConfig() == null) {
             return;
         }
 
-        if (request.getRequestAuth().getAuthConfig() == null) {
-            return;
-        }
-
-        var authConfig =
-                request.getRequestAuth()
-                        .getAuthConfig();
-
+        var authConfig = request.getAuth().getAuthConfig();
         if (authConfig.getAuthType() == null) {
             return;
         }
 
-        String configJson =
-                authConfig.getConfigJson();
-
-        if (configJson == null ||
-                configJson.isBlank()) {
+        String configJson = authConfig.getConfigJson();
+        if (configJson == null || configJson.isBlank()) {
             return;
         }
 
         try {
-
-            Map<String, Object> config =
-                    objectMapper.readValue(
-                            configJson,
-                            Map.class
-                    );
+            Map<String, Object> config = objectMapper.readValue(configJson, Map.class);
 
             switch (authConfig.getAuthType()) {
-
-                case BASIC -> applyBasicAuth(
-                        config,
-                        headers,
-                        variables
-                );
-
-                case BEARER -> applyBearerAuth(
-                        config,
-                        headers,
-                        variables
-                );
-
-                case API_KEY -> applyApiKeyAuth(
-                        config,
-                        headers,
-                        variables
-                );
-
-                case NONE -> {
-                }
-
-                case OAUTH2 ->
-                        throw new BadRequestException(
-                                "OAuth2 execution is not implemented yet"
-                        );
+                case BASIC -> applyBasicAuth(config, headers, variables);
+                case BEARER -> applyBearerAuth(config, headers, variables);
+                case API_KEY -> applyApiKeyAuth(config, headers, variables);
+                case NONE -> {}
+                case OAUTH2 -> throw new BadRequestException("OAuth2 execution is not implemented yet");
             }
-
-        } catch (JsonProcessingException exception) {
-
-            throw new BadRequestException(
-                    "Invalid authentication configuration"
-            );
+        } catch (JacksonException exception) {
+            throw new BadRequestException("Invalid authentication configuration");
         }
     }
 
@@ -680,32 +361,12 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Map<String, String> headers,
             Map<String, String> variables
     ) {
+        String username = resolveConfigValue(config.get("username"), variables);
+        String password = resolveConfigValue(config.get("password"), variables);
+        String credentials = username + ":" + password;
+        String encoded = Base64.getEncoder().encodeToString(credentials.getBytes());
 
-        String username =
-                resolveConfigValue(
-                        config.get("username"),
-                        variables
-                );
-
-        String password =
-                resolveConfigValue(
-                        config.get("password"),
-                        variables
-                );
-
-        String credentials =
-                username + ":" + password;
-
-        String encoded =
-                Base64.getEncoder()
-                        .encodeToString(
-                                credentials.getBytes()
-                        );
-
-        headers.put(
-                "Authorization",
-                "Basic " + encoded
-        );
+        headers.put("Authorization", "Basic " + encoded);
     }
 
     private void applyBearerAuth(
@@ -713,17 +374,8 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Map<String, String> headers,
             Map<String, String> variables
     ) {
-
-        String token =
-                resolveConfigValue(
-                        config.get("token"),
-                        variables
-                );
-
-        headers.put(
-                "Authorization",
-                "Bearer " + token
-        );
+        String token = resolveConfigValue(config.get("token"), variables);
+        headers.put("Authorization", "Bearer " + token);
     }
 
     private void applyApiKeyAuth(
@@ -731,33 +383,12 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Map<String, String> headers,
             Map<String, String> variables
     ) {
-
-        String key =
-                resolveConfigValue(
-                        config.get("key"),
-                        variables
-                );
-
-        String value =
-                resolveConfigValue(
-                        config.get("value"),
-                        variables
-                );
-
-        String location =
-                resolveConfigValue(
-                        config.get("location"),
-                        variables
-                );
+        String key = resolveConfigValue(config.get("key"), variables);
+        String value = resolveConfigValue(config.get("value"), variables);
+        String location = resolveConfigValue(config.get("location"), variables);
 
         if ("query".equalsIgnoreCase(location)) {
-            /*
-             * Query based API keys should eventually be handled
-             * by the URL builder.
-             */
-            throw new BadRequestException(
-                    "Query API key authentication is not supported yet"
-            );
+            throw new BadRequestException("Query API key authentication is not supported yet");
         }
 
         headers.put(key, value);
@@ -767,100 +398,58 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Object value,
             Map<String, String> variables
     ) {
-
         if (value == null) {
             return "";
         }
-
-        return VariableResolver.resolve(
-                String.valueOf(value),
-                variables
-        );
+        return VariableResolver.resolve(String.valueOf(value), variables);
     }
 
     private HttpRequest.BodyPublisher createBodyPublisher(
             ApiRequest request,
             String body
     ) {
-
-        if (body == null ||
-                body.isBlank() ||
-                request.getBodyType() == null ||
-                request.getBodyType().name().equals("NONE")) {
-
+        if (body == null || body.isBlank() || request.getBodyType() == null || "NONE".equals(request.getBodyType().name())) {
             return HttpRequest.BodyPublishers.noBody();
         }
-
         return HttpRequest.BodyPublishers.ofString(body);
     }
 
-    private ExecutionStatus resolveStatus(
-            int statusCode
-    ) {
-
-        if (statusCode >= 200 &&
-                statusCode < 300) {
-
+    private ExecutionStatus resolveStatus(int statusCode) {
+        if (statusCode >= 200 && statusCode < 300) {
             return ExecutionStatus.SUCCESS;
         }
-
-        if (statusCode >= 400 &&
-                statusCode < 500) {
-
+        if (statusCode >= 400 && statusCode < 500) {
             return ExecutionStatus.CLIENT_ERROR;
         }
-
         if (statusCode >= 500) {
-
             return ExecutionStatus.SERVER_ERROR;
         }
-
         return ExecutionStatus.FAILED;
     }
 
-    private String serialize(
-            Map<String, String> values
-    ) {
-
+    private String serialize(Map<String, String> values) {
         try {
-
-            return objectMapper.writeValueAsString(
-                    values
-            );
-
-        } catch (JsonProcessingException exception) {
-
+            return objectMapper.writeValueAsString(values);
+        } catch (JacksonException exception) {
             return "{}";
         }
     }
 
-    private String serializeResponseHeaders(
-            Map<String, List<String>> headers
-    ) {
-
+    private String serializeResponseHeaders(Map<String, List<String>> headers) {
         try {
-
-            return objectMapper.writeValueAsString(
-                    headers
-            );
-
-        } catch (JsonProcessingException exception) {
-
+            return objectMapper.writeValueAsString(headers);
+        } catch (JacksonException exception) {
             return "{}";
         }
     }
 
     private String encode(String value) {
-
         try {
-
             return java.net.URLEncoder.encode(
                     value == null ? "" : value,
                     java.nio.charset.StandardCharsets.UTF_8
             );
-
         } catch (Exception exception) {
-
             return value;
         }
     }
@@ -869,19 +458,15 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             UUID workspaceId,
             UUID userId
     ) {
-
-        boolean isMember =
-                workspaceMemberRepository
-                        .existsByWorkspaceIdAndUserIdAndStatus(
-                                workspaceId,
-                                userId,
-                                "ACTIVE"
-                        );
+        boolean isMember = workspaceMemberRepository
+                .existsByWorkspaceIdAndUserIdAndStatus(
+                        workspaceId,
+                        userId,
+                        "ACTIVE"
+                );
 
         if (!isMember) {
-            throw new ForbiddenException(
-                    "You do not have access to this workspace"
-            );
+            throw new ForbiddenException("You do not have access to this workspace");
         }
     }
 }
