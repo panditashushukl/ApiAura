@@ -291,6 +291,36 @@ erDiagram
         text source_path
     }
 
+    WORKFLOW_EXECUTION {
+        bigint id PK
+        bigint workflow_id FK
+        bigint environment_id FK
+        bigint executed_by FK
+        varchar status
+        int total_steps
+        int completed_steps
+        int failed_steps
+        bigint duration_ms
+        text error_message
+        datetime created_at
+        datetime updated_at
+    }
+
+    WORKFLOW_STEP_EXECUTION {
+        bigint id PK
+        bigint workflow_execution_id FK
+        bigint workflow_step_id FK
+        bigint request_execution_id FK
+        int sort_order
+        varchar status
+        text extracted_value
+        varchar extracted_variable
+        text error_message
+        bigint duration_ms
+        datetime created_at
+        datetime updated_at
+    }
+
     REQUEST_EXECUTION {
         bigint id PK
         bigint request_id FK
@@ -436,6 +466,14 @@ erDiagram
     API_REQUEST ||--o{ WORKFLOW_STEP : executes
 
     WORKFLOW ||--o{ WORKFLOW_VARIABLE : defines
+
+    WORKFLOW ||--o{ WORKFLOW_EXECUTION : runs
+    ENVIRONMENT ||--o{ WORKFLOW_EXECUTION : uses
+    USER ||--o{ WORKFLOW_EXECUTION : executes
+
+    WORKFLOW_EXECUTION ||--o{ WORKFLOW_STEP_EXECUTION : contains
+    WORKFLOW_STEP ||--o{ WORKFLOW_STEP_EXECUTION : tracked_by
+    REQUEST_EXECUTION ||--o| WORKFLOW_STEP_EXECUTION : linked_to
 
     API_REQUEST ||--o{ REQUEST_EXECUTION : executed_as
     ENVIRONMENT ||--o{ REQUEST_EXECUTION : uses

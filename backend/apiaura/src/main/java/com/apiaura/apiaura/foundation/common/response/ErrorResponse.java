@@ -22,5 +22,7 @@ public class ErrorResponse {
 
     private Instant timestamp;
 
+    private String traceId;
+
     private Map<String, String> validationErrors;
 }

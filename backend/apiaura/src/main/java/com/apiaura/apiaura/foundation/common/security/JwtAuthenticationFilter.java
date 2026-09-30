@@ -59,6 +59,8 @@ public class JwtAuthenticationFilter
                 .getContext()
                 .setAuthentication(authentication);
 
+        org.slf4j.MDC.put("userId", userId.toString());
+
         filterChain.doFilter(request, response);
     }
 }
