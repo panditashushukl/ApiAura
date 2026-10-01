@@ -14,6 +14,8 @@ import com.apiaura.apiaura.foundation.common.security.JwtService;
 import com.apiaura.apiaura.identity.user.dto.response.UserResponse;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
+import org.springframework.security.core.AuthenticationException;
+
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
@@ -80,12 +83,16 @@ public class AuthServiceImpl implements AuthService {
                 .trim()
                 .toLowerCase();
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        email,
-                        request.getPassword()
-                )
-        );
+        try {
+                authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(
+                                email,
+                                request.getPassword()
+                        )
+                );
+        } catch (AuthenticationException e) {
+                throw new UnauthorizedException("Invalid email or password. Please enter valid credentials.");
+        }
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -197,15 +204,16 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private String generateRefreshToken() {
+
+        byte[] randomBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(randomBytes);
 
         return Base64.getUrlEncoder()
                 .withoutPadding()
-                .encodeToString(
-                        UUID.randomUUID()
-                                .toString()
-                                .getBytes(StandardCharsets.UTF_8)
-                );
+                .encodeToString(randomBytes);
     }
 
     private String hash(String value) {

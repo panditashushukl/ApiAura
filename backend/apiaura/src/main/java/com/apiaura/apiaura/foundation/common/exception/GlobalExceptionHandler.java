@@ -6,9 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.BadCredentialsException;
+
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -71,6 +75,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(response);
+    }
+
+    @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(
+            AuthenticationException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Authentication failed for path={}: {}", request.getRequestURI(), exception.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .message("Invalid email or password. Please enter valid credentials.")
+                .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+                .path(request.getRequestURI())
+                .timestamp(Instant.now())
+                .traceId(MDC.get("traceId"))
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(response);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "status", HttpStatus.BAD_REQUEST.value(),
+                "error", "Bad Request",
+                "message", "Required request body is missing or unreadable"
+        ));
     }
 
     @ExceptionHandler(Exception.class)

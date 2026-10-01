@@ -2,6 +2,7 @@ package com.apiaura.apiaura.foundation.common.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +17,7 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter
-        extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
@@ -28,20 +28,9 @@ public class JwtAuthenticationFilter
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String header =
-                request.getHeader("Authorization");
+        String token = extractToken(request);
 
-        if (header == null ||
-                !header.startsWith("Bearer ")) {
-
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        String token = header.substring(7);
-
-        if (!jwtService.isValid(token)) {
-
+        if (token == null || !jwtService.isValid(token)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -62,5 +51,27 @@ public class JwtAuthenticationFilter
         org.slf4j.MDC.put("userId", userId.toString());
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        // 1. Check Authorization Header (Bearer token)
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+
+        // 2. Check HTTP Cookies (accessToken, jwt, token)
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("accessToken".equalsIgnoreCase(cookie.getName()) ||
+                    "jwt".equalsIgnoreCase(cookie.getName()) ||
+                    "token".equalsIgnoreCase(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        return null;
     }
 }

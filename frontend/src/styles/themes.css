@@ -1,0 +1,105 @@
+:root {
+    /* Brand */
+    --brand-50: 239 246 255;
+    --brand-100: 219 234 254;
+    --brand-200: 191 219 254;
+    --brand-300: 147 197 253;
+    --brand-400: 96 165 250;
+    --brand-500: 59 130 246;
+    --brand-600: 37 99 235;
+    --brand-700: 29 78 216;
+    --brand-800: 30 64 175;
+    --brand-900: 30 58 138;
+
+    /* Semantic */
+    --success: 34 197 94;
+    --warning: 234 179 8;
+    --danger: 239 68 68;
+    --info: 59 130 246;
+
+    /* HTTP Methods */
+
+    --method-get: 34 197 94;
+    --method-post: 59 130 246;
+    --method-put: 234 179 8;
+    --method-patch: 168 85 247;
+    --method-delete: 239 68 68;
+    --method-options: 6 182 212;
+    --method-head: 100 116 139;
+}
+
+/* =====================================================
+   DARK BLUE
+   ===================================================== */
+
+[data-theme="dark-blue"] {
+    --background: 8 15 30;
+    --foreground: 226 232 240;
+
+    --card: 15 23 42;
+    --card-foreground: 226 232 240;
+
+    --popover: 15 23 42;
+    --popover-foreground: 226 232 240;
+
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
+
+    --secondary: 23 37 61;
+    --secondary-foreground: 219 234 254;
+
+    --muted: 15 23 42;
+    --muted-foreground: 148 163 184;
+
+    --accent: 30 58 138;
+    --accent-foreground: 219 234 254;
+
+    --border: 30 41 59;
+    --input: 30 41 59;
+    --ring: 59 130 246;
+
+    --sidebar: 7 13 27;
+    --sidebar-foreground: 226 232 240;
+    --sidebar-border: 30 41 59;
+    --sidebar-accent: 23 37 61;
+
+    --code-background: 5 10 20;
+}
+
+/* =====================================================
+   LIGHT BLUE
+   ===================================================== */
+
+[data-theme="light-blue"] {
+    --background: 248 250 252;
+    --foreground: 15 23 42;
+
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
+
+    --primary: 37 99 235;
+    --primary-foreground: 255 255 255;
+
+    --secondary: 239 246 255;
+    --secondary-foreground: 30 64 175;
+
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+
+    --accent: 219 234 254;
+    --accent-foreground: 30 64 175;
+
+    --border: 226 232 240;
+    --input: 226 232 240;
+    --ring: 37 99 235;
+
+    --sidebar: 241 245 249;
+    --sidebar-foreground: 15 23 42;
+    --sidebar-border: 226 232 240;
+    --sidebar-accent: 219 234 254;
+
+    --code-background: 241 245 249;
+}

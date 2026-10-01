@@ -2,11 +2,22 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <!-- Properties -->
+    <!-- Spring / Environment Properties -->
     <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="apiaura"/>
     <springProperty scope="context" name="activeProfile" source="spring.profiles.active" defaultValue="default"/>
+    <springProperty scope="context" name="logPath" source="logging.file.path" defaultValue="logs"/>
+    <springProperty scope="context" name="maxFileSize" source="logging.logback.rollingpolicy.max-file-size" defaultValue="10MB"/>
+    <springProperty scope="context" name="maxHistory" source="logging.logback.rollingpolicy.max-history" defaultValue="30"/>
+    <springProperty scope="context" name="totalSizeCap" source="logging.logback.rollingpolicy.total-size-cap" defaultValue="3GB"/>
 
-    <!-- Structured JSON Console Appender (Production / Staging / JSON profile) -->
+    <!-- 1. Development Colored Console Appender -->
+    <appender name="DEV_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([${appName},%X{traceId:-},%X{userId:-}]){yellow} %clr(%logger{36}){cyan} : %m%n%wEx</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 2. Production Structured JSON Console Appender (stdout / container runtime) -->
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"${appName}","environment":"${activeProfile}"}</customFields>
@@ -22,23 +33,95 @@
         </encoder>
     </appender>
 
-    <!-- Development Colored Console Appender -->
-    <appender name="DEV_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- 3. Standard Production Log File Appender (Rolling & Compressed) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logPath}/${appName}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logPath}/archived/${appName}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${maxFileSize}</maxFileSize>
+            <maxHistory>${maxHistory}</maxHistory>
+            <totalSizeCap>${totalSizeCap}</totalSizeCap>
+        </rollingPolicy>
         <encoder>
-            <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([${appName},%X{traceId:-},%X{userId:-}]){yellow} %clr(%logger{36}){cyan} : %m%n%wEx</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [${appName},%X{traceId:-},%X{userId:-},%X{clientIp:-}] %logger{36} - %msg%n%wEx</pattern>
         </encoder>
     </appender>
 
-    <!-- Profile Configurations -->
+    <!-- 4. Structured JSON Production Log File Appender (Logstash / ELK / Vector / Loki) -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logPath}/${appName}-json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logPath}/archived/${appName}-json-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${maxFileSize}</maxFileSize>
+            <maxHistory>${maxHistory}</maxHistory>
+            <totalSizeCap>${totalSizeCap}</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${appName}","environment":"${activeProfile}"}</customFields>
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>userEmail</includeMdcKeyName>
+            <includeMdcKeyName>workspaceId</includeMdcKeyName>
+            <includeMdcKeyName>clientIp</includeMdcKeyName>
+            <includeMdcKeyName>httpMethod</includeMdcKeyName>
+            <includeMdcKeyName>requestUri</includeMdcKeyName>
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSZZ</timestampPattern>
+        </encoder>
+    </appender>
+
+    <!-- 5. Dedicated Warning & Error Log File Appender -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logPath}/${appName}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logPath}/archived/${appName}-error-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${maxFileSize}</maxFileSize>
+            <maxHistory>${maxHistory}</maxHistory>
+            <totalSizeCap>${totalSizeCap}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [${appName},%X{traceId:-},%X{userId:-},%X{clientIp:-}] %logger{36} - %msg%n%wEx</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 6. Non-Blocking Async Wrapper Appenders for High Throughput Production Performance -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>true</includeCallerData>
+    </appender>
+
+    <appender name="ASYNC_JSON_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="JSON_FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="ERROR_FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <!-- Logger Profiles -->
     <springProfile name="dev | default">
         <root level="INFO">
-            <appender-ref ref="DEV_CONSOLE" />
+            <appender-ref ref="DEV_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_ERROR_FILE"/>
         </root>
     </springProfile>
 
     <springProfile name="prod | staging | json">
         <root level="INFO">
-            <appender-ref ref="JSON_CONSOLE" />
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="ASYNC_JSON_FILE"/>
+            <appender-ref ref="ASYNC_ERROR_FILE"/>
         </root>
     </springProfile>
 </configuration>
