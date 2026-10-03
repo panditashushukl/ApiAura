@@ -114,7 +114,7 @@ axiosInstance.interceptors.response.use(
           ? "An unexpected server error occurred."
           : error.message || "An unexpected error occurred.");
 
-      if (status === 401 && typeof window !== "undefined") {
+      if ((status === 401 || status === 403) && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("apiaura:unauthorized"));
       }
 

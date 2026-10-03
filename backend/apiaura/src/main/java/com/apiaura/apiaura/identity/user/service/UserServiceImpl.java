@@ -20,6 +20,7 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Override
     public UserResponse getById(UUID userId) {
@@ -38,6 +39,30 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserResponse> getAll() {
+        try {
+            UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
+            User currentUser = findUser(currentUserId);
+
+            boolean isSuperAdmin = currentUser.getRoles().stream()
+                    .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
+
+            if (isSuperAdmin) {
+                return userRepository.findAll()
+                        .stream()
+                        .map(UserResponse::from)
+                        .toList();
+            }
+
+            if (currentUser.getOrganization() != null) {
+                return userRepository.findByOrganizationId(currentUser.getOrganization().getId())
+                        .stream()
+                        .map(UserResponse::from)
+                        .toList();
+            }
+        } catch (Exception ignored) {
+            // Fallback for system internal calls
+        }
+
         return userRepository.findAll()
                 .stream()
                 .map(UserResponse::from)
@@ -69,6 +94,10 @@ public class UserServiceImpl implements UserService {
             user.setEmail(request.getEmail().toLowerCase());
         }
 
+        if (request.getMobileNumber() != null) {
+            user.setMobileNumber(request.getMobileNumber());
+        }
+
         return UserResponse.from(userRepository.save(user));
     }
 
@@ -90,6 +119,40 @@ public class UserServiceImpl implements UserService {
     public void delete(UUID userId) {
         User user = findUser(userId);
         userRepository.delete(user);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User user = findUser(userId);
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void resetPasswordByAdmin(UUID adminUserId, UUID targetUserId, String newPassword) {
+        User adminUser = findUser(adminUserId);
+        User targetUser = findUser(targetUserId);
+
+        boolean isSuperAdmin = adminUser.getRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
+
+        if (!isSuperAdmin) {
+            // Verify target user belongs to same organization as admin
+            if (adminUser.getOrganization() == null || targetUser.getOrganization() == null ||
+                    !adminUser.getOrganization().getId().equals(targetUser.getOrganization().getId())) {
+                throw new BadRequestException("You can only reset passwords for users in your organization");
+            }
+        }
+
+        targetUser.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(targetUser);
     }
 
     private User findUser(UUID userId) {

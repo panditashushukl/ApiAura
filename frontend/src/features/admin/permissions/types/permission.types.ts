@@ -17,6 +17,14 @@ export interface CreatePermissionRequest {
     description?: string;
 }
 
+export interface UpdatePermissionRequest {
+    name?: string;
+    code?: string;
+    resource?: string;
+    action?: string;
+    description?: string;
+}
+
 export interface ApiResponse<T> {
     success: boolean;
     message: string;

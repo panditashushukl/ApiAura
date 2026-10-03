@@ -34,11 +34,15 @@ export async function createRequest(
   collectionId: string,
   request: CreateApiRequest
 ): Promise<ApiRequest> {
+  const payload = {
+    ...request,
+    bodyType: request.bodyType ?? "NONE",
+  };
   const response = await apiClient<ApiResponse<ApiRequest>>(
     `/collections/${collectionId}/requests`,
     {
       method: "POST",
-      data: JSON.stringify(request),
+      data: payload,
     }
   );
   return response.data;
@@ -50,7 +54,7 @@ export async function updateRequest(
 ): Promise<ApiRequest> {
   const response = await apiClient<ApiResponse<ApiRequest>>(`/requests/${requestId}`, {
     method: "PATCH",
-    data: JSON.stringify(request),
+    data: request,
   });
   return response.data;
 }
@@ -73,7 +77,7 @@ export async function createRequestHeader(
 ): Promise<RequestHeader> {
   const response = await apiClient<ApiResponse<RequestHeader>>(`/requests/${requestId}/headers`, {
     method: "POST",
-    data: JSON.stringify(header),
+    data: header,
   });
   return response.data;
 }
@@ -99,7 +103,7 @@ export async function createQueryParameter(
 ): Promise<QueryParameter> {
   const response = await apiClient<ApiResponse<QueryParameter>>(`/requests/${requestId}/query-parameters`, {
     method: "POST",
-    data: JSON.stringify(param),
+    data: param,
   });
   return response.data;
 }

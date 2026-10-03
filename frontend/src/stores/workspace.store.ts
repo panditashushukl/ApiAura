@@ -2,7 +2,10 @@ import { create } from "zustand";
 
 interface WorkspaceState {
     selectedWorkspaceId: string | null;
+    selectedRequestId: string | null;
+    selectedCollectionId: string | null;
     setSelectedWorkspace: (workspaceId: string) => void;
+    setSelectedRequest: (requestId: string | null, collectionId: string | null) => void;
     clearSelectedWorkspace: () => void;
 }
 
@@ -13,6 +16,8 @@ const getInitialWorkspaceId = (): string | null => {
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     selectedWorkspaceId: getInitialWorkspaceId(),
+    selectedRequestId: null,
+    selectedCollectionId: null,
 
     setSelectedWorkspace: (workspaceId) => {
         if (typeof window !== "undefined") {
@@ -25,10 +30,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         set({ selectedWorkspaceId: workspaceId });
     },
 
+    setSelectedRequest: (requestId, collectionId) => {
+        set({ selectedRequestId: requestId, selectedCollectionId: collectionId });
+    },
+
     clearSelectedWorkspace: () => {
         if (typeof window !== "undefined") {
             localStorage.removeItem("apiaura_selected_workspace_id");
         }
-        set({ selectedWorkspaceId: null });
+        set({ selectedWorkspaceId: null, selectedRequestId: null, selectedCollectionId: null });
     },
 }));

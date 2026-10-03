@@ -21,4 +21,7 @@ public class RegisterRequest {
     @NotBlank
     @Size(min = 8, max = 100)
     private String password;
+
+    @Size(max = 30)
+    private String mobileNumber;
 }

@@ -27,7 +27,6 @@ public record CreateApiRequest(
         @Size(max = 50000)
         String documentation,
 
-        @NotNull
         BodyType bodyType,
 
         String body,

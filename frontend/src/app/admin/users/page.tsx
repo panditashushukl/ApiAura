@@ -1,9 +1,14 @@
+import { AppShell } from "@/components/layout/app-shell";
+import { AdminNavTabs } from "@/features/admin/components/admin-nav-tabs";
 import { UserList } from "@/features/admin/users/components/user-list";
 
 export default function AdminUsersPage() {
     return (
-        <div className="p-6">
-            <UserList />
-        </div>
+        <AppShell>
+            <div className="p-6">
+                <AdminNavTabs />
+                <UserList />
+            </div>
+        </AppShell>
     );
 }

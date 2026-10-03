@@ -45,7 +45,7 @@ export function CollectionSidebarTree({
     if (!search.trim()) return collections;
     const q = search.toLowerCase().trim();
     return collections.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.baseUrl?.toLowerCase().includes(q)
+      (c) => c.name.toLowerCase().includes(q) || (c.description && c.description.toLowerCase().includes(q))
     );
   }, [collections, search]);
 

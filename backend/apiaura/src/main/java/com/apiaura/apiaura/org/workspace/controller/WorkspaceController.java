@@ -51,6 +51,20 @@ public class WorkspaceController {
         );
     }
 
+    @PostMapping
+    public ApiResponse<WorkspaceResponse> createPersonal(
+            @Valid @RequestBody CreateWorkspaceRequest request
+    ) {
+        return ApiResponse.success(
+                "Workspace created",
+                workspaceService.create(
+                        null,
+                        SecurityUtils.getCurrentUserId(),
+                        request
+                )
+        );
+    }
+
     @PostMapping("/organization/{organizationId}")
     public ApiResponse<WorkspaceResponse> create(
             @PathVariable UUID organizationId,

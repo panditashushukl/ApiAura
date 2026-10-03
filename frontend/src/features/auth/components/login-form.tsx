@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -121,6 +122,13 @@ export function LoginForm() {
       >
         {loginMutation.isPending ? "Signing in..." : "Sign in"}
       </Button>
+
+      <div className="pt-2 text-center text-xs text-[rgb(var(--muted-foreground))] border-t border-[rgb(var(--border))]/50">
+        Don&apos;t have an account?{" "}
+        <Link href="/register" className="font-semibold text-[rgb(var(--primary))] hover:underline">
+          Create Account
+        </Link>
+      </div>
     </form>
   );
 }

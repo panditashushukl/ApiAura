@@ -20,7 +20,7 @@ export async function executeWorkflow(
     `/workflows/${workflowId}/execute`,
     {
       method: "POST",
-      data: JSON.stringify({ environmentId }),
+      data: { environmentId },
     }
   );
   return response.data;
@@ -41,7 +41,7 @@ export async function createWorkflow(
     `/workspaces/${workspaceId}/workflows`,
     {
       method: "POST",
-      data: JSON.stringify(request),
+      data: request,
     }
   );
   return response.data;

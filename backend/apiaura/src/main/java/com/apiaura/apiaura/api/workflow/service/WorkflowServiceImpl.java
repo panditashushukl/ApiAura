@@ -28,6 +28,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
+import com.apiaura.apiaura.api.workflow.dto.request.CreateWorkflowRequest;
+import com.apiaura.apiaura.api.workflow.dto.response.WorkflowResponse;
+import com.apiaura.apiaura.org.workspace.entity.Workspace;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
+
 @Service
 @Transactional
 public class WorkflowServiceImpl
@@ -38,6 +43,7 @@ public class WorkflowServiceImpl
     private final EnvironmentRepository environmentRepository;
     private final UserRepository userRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final WorkspaceRepository workspaceRepository;
     private final ApiExecutionService apiExecutionService;
     private final ObjectMapper objectMapper;
 
@@ -47,6 +53,7 @@ public class WorkflowServiceImpl
             EnvironmentRepository environmentRepository,
             UserRepository userRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
+            WorkspaceRepository workspaceRepository,
             ApiExecutionService apiExecutionService,
             ObjectMapper objectMapper
     ) {
@@ -55,6 +62,7 @@ public class WorkflowServiceImpl
         this.environmentRepository = environmentRepository;
         this.userRepository = userRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceRepository = workspaceRepository;
         this.apiExecutionService = apiExecutionService;
         this.objectMapper = objectMapper;
     }
@@ -444,11 +452,60 @@ public class WorkflowServiceImpl
         );
     }
 
+    @Override
+    public List<WorkflowResponse> getByWorkspace(UUID workspaceId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        validateWorkspaceAccess(workspaceId, userId);
+        return workflowRepository
+                .findByWorkspaceId(workspaceId, org.springframework.data.domain.Pageable.unpaged())
+                .map(WorkflowResponse::from)
+                .getContent();
+    }
+
+    @Override
+    public WorkflowResponse create(UUID workspaceId, CreateWorkflowRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        validateWorkspaceAccess(workspaceId, userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+
+        if (workflowRepository.existsByWorkspaceIdAndNameIgnoreCase(workspaceId, request.name().trim())) {
+            throw new BadRequestException("Workflow name already exists in workspace");
+        }
+
+        Workflow workflow = new Workflow();
+        workflow.setWorkspace(workspace);
+        workflow.setCreatedBy(user);
+        workflow.setName(request.name().trim());
+        workflow.setDescription(request.description() != null ? request.description().trim() : null);
+        workflow.setStatus(WorkflowStatus.ACTIVE);
+
+        return WorkflowResponse.from(workflowRepository.save(workflow));
+    }
+
+    @Override
+    public WorkflowResponse getById(UUID workflowId) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow not found"));
+        validateWorkspaceAccess(workflow.getWorkspace().getId(), SecurityUtils.getCurrentUserId());
+        return WorkflowResponse.from(workflow);
+    }
+
+    @Override
+    public void delete(UUID workflowId) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow not found"));
+        validateWorkspaceAccess(workflow.getWorkspace().getId(), SecurityUtils.getCurrentUserId());
+        workflowRepository.delete(workflow);
+    }
+
     private void validateWorkspaceAccess(
             UUID workspaceId,
             UUID userId
     ) {
-
         boolean member =
                 workspaceMemberRepository
                         .existsByWorkspaceIdAndUserIdAndStatus(
@@ -458,9 +515,14 @@ public class WorkflowServiceImpl
                         );
 
         if (!member) {
-            throw new ForbiddenException(
-                    "You do not have access to this workspace"
-            );
+            boolean isCreator = workspaceRepository.findById(workspaceId)
+                    .map(w -> w.getCreatedBy() != null && w.getCreatedBy().getId().equals(userId))
+                    .orElse(false);
+            if (!isCreator) {
+                throw new ForbiddenException(
+                        "You do not have access to this workspace"
+                );
+            }
         }
     }
 }

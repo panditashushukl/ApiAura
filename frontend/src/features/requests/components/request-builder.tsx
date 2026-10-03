@@ -24,6 +24,8 @@ import { BodyType, HttpMethod } from "../types/request.types";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { useToast } from "@/components/feedback/toast-system";
 import { EnvironmentSelector } from "@/features/environments/components/environment-selector";
+import { VariableInput } from "@/features/environments/components/variable-input";
+import { useCollection } from "@/features/collections/hooks/use-collections";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { AssertionBuilder } from "@/features/testing/components/assertion-builder";
 import { ScriptEditor } from "@/features/testing/components/script-editor";
@@ -38,6 +40,7 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
   const toast = useToast();
   const { selectedWorkspaceId } = useWorkspaceStore();
   const { data: request, isLoading, error } = useRequestDetail(requestId);
+  const { data: collection } = useCollection(collectionId);
   const updateReq = useUpdateRequest(collectionId);
   const executeReq = useExecuteRequest();
 
@@ -208,18 +211,13 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
             <option value="OPTIONS">OPTIONS</option>
           </select>
 
-          <div className="relative flex-1">
-            <Input
+          <div className="flex-1 min-w-0">
+            <VariableInput
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={setUrl}
               placeholder="https://api.example.com/users/{{userId}}"
-              className="font-mono text-xs pr-16"
+              selectedEnvId={selectedEnvId}
             />
-            {url.includes("{{") && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10 px-1.5 py-0.5 rounded">
-                vars
-              </span>
-            )}
           </div>
 
           <Button onClick={handleSend} disabled={executeReq.isPending} className="gap-2 px-5">
@@ -298,12 +296,14 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
                       placeholder="Key (e.g. userId)"
                       className="h-8 text-xs font-mono"
                     />
-                    <Input
-                      value={newParamVal}
-                      onChange={(e) => setNewParamVal(e.target.value)}
-                      placeholder="Value (e.g. 123)"
-                      className="h-8 text-xs font-mono"
-                    />
+                    <div className="flex-1 min-w-0">
+                      <VariableInput
+                        value={newParamVal}
+                        onChange={setNewParamVal}
+                        placeholder="Value (e.g. {{userId}})"
+                        selectedEnvId={selectedEnvId}
+                      />
+                    </div>
                     <Button size="sm" onClick={handleAddParam} className="h-8 px-3">
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -345,12 +345,14 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
                     placeholder="Header Key (e.g. Content-Type)"
                     className="h-8 text-xs font-mono"
                   />
-                  <Input
-                    value={newHeaderVal}
-                    onChange={(e) => setNewHeaderVal(e.target.value)}
-                    placeholder="Header Value (e.g. application/json)"
-                    className="h-8 text-xs font-mono"
-                  />
+                  <div className="flex-1 min-w-0">
+                    <VariableInput
+                      value={newHeaderVal}
+                      onChange={setNewHeaderVal}
+                      placeholder="Header Value (e.g. {{token}})"
+                      selectedEnvId={selectedEnvId}
+                    />
+                  </div>
                   <Button size="sm" onClick={handleAddHeader} className="h-8 px-3">
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
@@ -399,13 +401,11 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
                 {authType === "bearer" && (
                   <div className="space-y-2">
                     <Label htmlFor="bearer-token">Token</Label>
-                    <Input
-                      id="bearer-token"
-                      type="password"
+                    <VariableInput
                       value={authToken}
-                      onChange={(e) => setAuthToken(e.target.value)}
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                      className="font-mono text-xs"
+                      onChange={setAuthToken}
+                      placeholder="{{token}}"
+                      selectedEnvId={selectedEnvId}
                     />
                   </div>
                 )}
@@ -432,11 +432,12 @@ export function RequestBuilder({ requestId, collectionId }: RequestBuilderProps)
                 </div>
 
                 {bodyType !== "NONE" && (
-                  <Textarea
+                  <VariableInput
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder='{\n  "key": "value"\n}'
-                    className="font-mono text-xs flex-1 min-h-[220px]"
+                    onChange={setBody}
+                    placeholder='{\n  "key": "{{value}}"\n}'
+                    multiline
+                    selectedEnvId={selectedEnvId}
                   />
                 )}
               </div>

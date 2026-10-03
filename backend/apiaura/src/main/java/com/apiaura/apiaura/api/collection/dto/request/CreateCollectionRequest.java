@@ -12,8 +12,9 @@ public record CreateCollectionRequest(
         @Size(max = 5000, message = "Description must not exceed 5000 characters")
         String description,
 
-        @Size(max = 2048, message = "Base URL must not exceed 2048 characters")
-        String baseUrl,
+        String preRequestScript,
+
+        String postRequestScript,
 
         @Size(max = 50000, message = "Documentation must not exceed 50000 characters")
         String documentation

@@ -91,7 +91,11 @@ public class ApiRequestServiceImpl implements ApiRequestService {
         apiRequest.setDocumentation(
                 normalizeNullable(request.documentation())
         );
-        apiRequest.setBodyType(request.bodyType());
+        apiRequest.setBodyType(
+                request.bodyType() != null
+                        ? request.bodyType()
+                        : com.apiaura.apiaura.foundation.common.enums.BodyType.NONE
+        );
         apiRequest.setBody(request.body());
         apiRequest.setEnabled(
                 request.enabled() == null || request.enabled()

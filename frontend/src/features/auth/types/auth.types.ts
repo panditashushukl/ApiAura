@@ -4,6 +4,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  mobileNumber?: string | null;
+  organizationId?: string | null;
+  organizationName?: string | null;
   status: UserStatus;
   roles?: string[];
   permissions?: string[];
@@ -21,6 +24,7 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
+  mobileNumber?: string;
 }
 
 export interface RefreshTokenRequest {

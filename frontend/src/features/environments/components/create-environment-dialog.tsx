@@ -51,16 +51,25 @@ export function CreateEnvironmentDialog({ workspaceId }: CreateEnvironmentDialog
   });
 
   const onSubmit = (data: CreateEnvFormValues) => {
-    createEnv.mutate(data, {
-      onSuccess: () => {
-        toast.success("Environment created successfully");
-        reset();
-        setOpen(false);
-      },
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : "Failed to create environment");
-      },
-    });
+    const slug = data.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    createEnv.mutate(
+      { ...data, slug },
+      {
+        onSuccess: () => {
+          toast.success("Environment created successfully");
+          reset();
+          setOpen(false);
+        },
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Failed to create environment");
+        },
+      }
+    );
   };
 
   return (

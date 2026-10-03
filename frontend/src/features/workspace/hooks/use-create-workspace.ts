@@ -15,7 +15,7 @@ export function useCreateWorkspace() {
             slug,
             description,
         }: {
-            organizationId: string;
+            organizationId?: string | null;
             name: string;
             slug: string;
             description?: string;

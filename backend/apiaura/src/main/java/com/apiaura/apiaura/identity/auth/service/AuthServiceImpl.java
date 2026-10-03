@@ -38,6 +38,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final com.apiaura.apiaura.identity.role.repository.RoleRepository roleRepository;
+    private final com.apiaura.apiaura.identity.role.repository.UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -61,19 +63,27 @@ public class AuthServiceImpl implements AuthService {
 
         user.setName(request.getName());
         user.setEmail(email);
+        user.setMobileNumber(request.getMobileNumber());
         user.setPasswordHash(
                 passwordEncoder.encode(request.getPassword())
         );
 
-        /*
-         * For a real production system this can initially be
-         * PENDING until email verification.
-         */
         user.setStatus(UserStatus.ACTIVE);
 
         user = userRepository.save(user);
 
-        return createAuthResponse(user);
+        // Assign GUEST role by default
+        final User savedUser = user;
+        roleRepository.findByCode("GUEST").ifPresent(guestRole -> {
+            com.apiaura.apiaura.identity.role.entity.UserRole ur = new com.apiaura.apiaura.identity.role.entity.UserRole();
+            ur.setUser(savedUser);
+            ur.setRole(guestRole);
+            ur.setAssignedAt(Instant.now());
+            userRoleRepository.save(ur);
+            savedUser.getRoles().add(ur);
+        });
+
+        return createAuthResponse(savedUser);
     }
 
     @Override

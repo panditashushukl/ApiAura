@@ -33,7 +33,7 @@ export async function createRole(
         ApiResponse<Role>
     >("/roles", {
         method: "POST",
-        data: JSON.stringify(request),
+        data: request,
     });
 
     return response.data;
@@ -47,7 +47,7 @@ export async function updateRole(
         ApiResponse<Role>
     >(`/roles/${roleId}`, {
         method: "PATCH",
-        data: JSON.stringify(request),
+        data: request,
     });
 
     return response.data;

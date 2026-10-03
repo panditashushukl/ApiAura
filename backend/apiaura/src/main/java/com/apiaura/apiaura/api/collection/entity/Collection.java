@@ -47,8 +47,11 @@ public class Collection extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "base_url", columnDefinition = "TEXT")
-    private String baseUrl;
+    @Column(name = "pre_request_script", columnDefinition = "TEXT")
+    private String preRequestScript;
+
+    @Column(name = "post_request_script", columnDefinition = "TEXT")
+    private String postRequestScript;
 
     @Column(columnDefinition = "TEXT")
     private String documentation;

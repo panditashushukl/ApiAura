@@ -29,4 +29,8 @@ public interface WorkspaceRepository
     );
 
     List<Workspace> findByCreatedById(UUID userId);
+
+    List<Workspace> findByCreatedByIdOrOrganizationId(UUID userId, UUID organizationId);
+
+    boolean existsByCreatedByIdAndSlug(UUID userId, String slug);
 }

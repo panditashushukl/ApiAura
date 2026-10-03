@@ -58,40 +58,78 @@ public class AdminDataInitializer implements ApplicationRunner {
         // 1. Seed system default permissions if missing
         seedDefaultPermissions();
 
-        // 2. Find or create Admin Role
-        Role adminRole = roleRepository.findByCode(adminRoleCode)
+        // 2. Seed system default roles (SUPER_ADMIN, ADMIN, GUEST)
+        Role superAdminRole = roleRepository.findByCode("SUPER_ADMIN")
                 .orElseGet(() -> {
                     Role role = new Role();
-                    role.setName(adminRoleName);
-                    role.setCode(adminRoleCode);
-                    role.setDescription("Administrator role with full permissions");
+                    role.setName("Super Admin");
+                    role.setCode("SUPER_ADMIN");
+                    role.setDescription("Super Administrator with platform-wide access");
                     role.setSystemRole(true);
                     return roleRepository.save(role);
                 });
 
-        // 3. Assign ALL permissions to Admin Role
+        Role adminRole = roleRepository.findByCode("ADMIN")
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName("Admin");
+                    role.setCode("ADMIN");
+                    role.setDescription("Organization Administrator role");
+                    role.setSystemRole(true);
+                    return roleRepository.save(role);
+                });
+
+        Role guestRole = roleRepository.findByCode("GUEST")
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName("Guest");
+                    role.setCode("GUEST");
+                    role.setDescription("Guest role assigned to newly registered users");
+                    role.setSystemRole(true);
+                    return roleRepository.save(role);
+                });
+
+        // 3. Assign ALL permissions to Super Admin and Admin Roles
         List<Permission> allPermissions = permissionRepository.findAll();
         for (Permission permission : allPermissions) {
+            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(superAdminRole.getId(), permission.getId())) {
+                RolePermission rp = new RolePermission();
+                rp.setRole(superAdminRole);
+                rp.setPermission(permission);
+                rp.setAssignedAt(Instant.now());
+                rolePermissionRepository.save(rp);
+            }
             if (!rolePermissionRepository.existsByRoleIdAndPermissionId(adminRole.getId(), permission.getId())) {
-                RolePermission rolePermission = new RolePermission();
-                rolePermission.setRole(adminRole);
-                rolePermission.setPermission(permission);
-                rolePermission.setAssignedAt(Instant.now());
-                rolePermissionRepository.save(rolePermission);
+                RolePermission rp = new RolePermission();
+                rp.setRole(adminRole);
+                rp.setPermission(permission);
+                rp.setAssignedAt(Instant.now());
+                rolePermissionRepository.save(rp);
             }
         }
-        log.info("Assigned {} permissions to role {}", allPermissions.size(), adminRole.getCode());
+        log.info("Assigned {} permissions to roles SUPER_ADMIN and ADMIN", allPermissions.size());
+
+        // Assign basic read permissions to Guest Role
+        permissionRepository.findByCode("request:read").ifPresent(p -> {
+            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(guestRole.getId(), p.getId())) {
+                RolePermission rp = new RolePermission();
+                rp.setRole(guestRole);
+                rp.setPermission(p);
+                rp.setAssignedAt(Instant.now());
+                rolePermissionRepository.save(rp);
+            }
+        });
 
         // 4. Find or create default Admin user
         String email = (adminEmail != null && !adminEmail.isBlank())
                 ? adminEmail.trim().toLowerCase()
-                : "";
+                : "admin@apiaura.com";
         String password = (adminPassword != null && !adminPassword.isBlank())
                 ? adminPassword
-                : "";
+                : "admin123";
         String name = (adminName != null && !adminName.isBlank())
                 ? adminName
-                : "System Admin";
+                : "Super Admin";
 
         User adminUser = userRepository.findByEmail(email)
                 .orElseGet(() -> {
@@ -103,21 +141,19 @@ public class AdminDataInitializer implements ApplicationRunner {
                     return userRepository.save(user);
                 });
 
-
-        // Ensure user status is active
         if (adminUser.getStatus() != UserStatus.ACTIVE) {
             adminUser.setStatus(UserStatus.ACTIVE);
             userRepository.save(adminUser);
         }
 
-        // 5. Assign Admin Role to Admin User if not already assigned
-        if (!userRoleRepository.existsByUserIdAndRoleId(adminUser.getId(), adminRole.getId())) {
+        // 5. Assign SUPER_ADMIN role to default admin user
+        if (!userRoleRepository.existsByUserIdAndRoleId(adminUser.getId(), superAdminRole.getId())) {
             UserRole userRole = new UserRole();
             userRole.setUser(adminUser);
-            userRole.setRole(adminRole);
+            userRole.setRole(superAdminRole);
             userRole.setAssignedAt(Instant.now());
             userRoleRepository.save(userRole);
-            log.info("Assigned role {} to admin user {}", adminRole.getCode(), adminUser.getEmail());
+            log.info("Assigned SUPER_ADMIN role to user {}", adminUser.getEmail());
         }
 
         log.info("AdminDataInitializer completed successfully for admin user: {}", email);

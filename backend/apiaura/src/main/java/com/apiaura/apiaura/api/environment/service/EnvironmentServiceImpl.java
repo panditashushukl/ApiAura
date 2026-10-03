@@ -45,7 +45,13 @@ public class EnvironmentServiceImpl implements EnvironmentService {
         ensureAccess(workspace, userId);
 
         String name = normalizeRequired(request.name());
-        String slug = normalizeRequired(request.slug());
+        String rawSlug = StringUtils.hasText(request.slug())
+                ? request.slug().trim()
+                : name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        if (!StringUtils.hasText(rawSlug)) {
+            rawSlug = "env-" + System.currentTimeMillis();
+        }
+        String slug = rawSlug;
 
         if (environmentRepository.existsByWorkspaceIdAndSlug(
                 workspaceId,

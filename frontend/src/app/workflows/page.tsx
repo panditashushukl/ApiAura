@@ -1,5 +1,6 @@
 "use client";
 
+import { AppShell } from "@/components/layout/app-shell";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { WorkflowList } from "@/features/workflows/components/workflow-list";
 import { useWorkspaces } from "@/features/workspace/hooks/use-workspaces";
@@ -15,24 +16,26 @@ export default function WorkflowsPage() {
   const activeWorkspaceId =
     selectedWorkspaceId || (workspaces.length > 0 ? workspaces[0].id : null);
 
-  if (isLoading) {
-    return <LoadingState message="Loading workspaces..." />;
-  }
-
-  if (!activeWorkspaceId) {
-    return (
-      <div className="p-12 text-center max-w-md mx-auto space-y-4">
-        <Layers className="h-10 w-10 mx-auto text-[rgb(var(--muted-foreground))]" />
-        <h2 className="text-lg font-semibold">No Workspace Selected</h2>
-        <p className="text-xs text-[rgb(var(--muted-foreground))]">
-          Please select or create a workspace first before managing multi-step workflow pipelines.
-        </p>
-        <Link href="/workspaces">
-          <Button size="sm">Go to Workspaces</Button>
-        </Link>
+  return (
+    <AppShell>
+      <div className="p-6">
+        {isLoading ? (
+          <LoadingState message="Loading workspaces..." />
+        ) : !activeWorkspaceId ? (
+          <div className="p-12 text-center max-w-md mx-auto space-y-4">
+            <Layers className="h-10 w-10 mx-auto text-[rgb(var(--muted-foreground))]" />
+            <h2 className="text-lg font-semibold">No Workspace Selected</h2>
+            <p className="text-xs text-[rgb(var(--muted-foreground))]">
+              Please select or create a workspace first before managing multi-step workflow pipelines.
+            </p>
+            <Link href="/workspaces">
+              <Button size="sm">Go to Workspaces</Button>
+            </Link>
+          </div>
+        ) : (
+          <WorkflowList workspaceId={activeWorkspaceId} />
+        )}
       </div>
-    );
-  }
-
-  return <WorkflowList workspaceId={activeWorkspaceId} />;
+    </AppShell>
+  );
 }

@@ -20,4 +20,8 @@ public interface UserService {
     UserResponse updateStatus(UUID userId, UserStatus status);
 
     List<UserResponse> getAll();
+
+    void changePassword(UUID userId, String currentPassword, String newPassword);
+
+    void resetPasswordByAdmin(UUID adminUserId, UUID targetUserId, String newPassword);
 }

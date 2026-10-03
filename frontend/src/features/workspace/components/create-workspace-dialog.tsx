@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { CreateWorkspaceForm } from "./create-workspace-form";
 
 interface CreateWorkspaceDialogProps {
-    organizationId: string;
+    organizationId?: string | null;
 }
 
 export function CreateWorkspaceDialog({

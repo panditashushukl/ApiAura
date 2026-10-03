@@ -40,7 +40,7 @@ type CreateWorkspaceFormData =
     z.infer<typeof createWorkspaceSchema>;
 
 interface CreateWorkspaceFormProps {
-    organizationId: string;
+    organizationId?: string | null;
     onSuccess?: () => void;
     onCancel?: () => void;
 }

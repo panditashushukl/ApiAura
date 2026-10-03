@@ -17,16 +17,6 @@ export function ApiDocViewer({ collectionId }: ApiDocViewerProps) {
   const toast = useToast();
   const { data: collection, isLoading: loadingCol } = useCollection(collectionId);
   const { data: requests = [], isLoading: loadingReqs } = useCollectionRequests(collectionId);
-  const [copiedBaseUrl, setCopiedBaseUrl] = useState(false);
-
-  const handleCopyBaseUrl = () => {
-    const url = collection?.baseUrl || "https://api.example.com";
-    navigator.clipboard.writeText(url);
-    setCopiedBaseUrl(true);
-    toast.success("Base URL copied");
-    setTimeout(() => setCopiedBaseUrl(false), 2000);
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -75,22 +65,6 @@ export function ApiDocViewer({ collectionId }: ApiDocViewerProps) {
             <Printer className="h-3.5 w-3.5" /> Export PDF / Print
           </Button>
         </div>
-      </div>
-
-      {/* Base URL Box */}
-      <div className="p-4 border border-[rgb(var(--border))] rounded-lg bg-[rgb(var(--card))] flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2 font-mono">
-          <Globe className="h-4 w-4 text-[rgb(var(--primary))]" />
-          <span className="font-semibold text-[rgb(var(--muted-foreground))]">Base URL:</span>
-          <span className="font-bold text-[rgb(var(--foreground))]">
-            {collection.baseUrl || "https://api.example.com/v1"}
-          </span>
-        </div>
-
-        <Button variant="ghost" size="sm" onClick={handleCopyBaseUrl} className="h-7 gap-1 text-xs">
-          {copiedBaseUrl ? <Check className="h-3.5 w-3.5 text-[rgb(var(--success))]" /> : <Copy className="h-3.5 w-3.5" />}
-          Copy Base URL
-        </Button>
       </div>
 
       {/* Split TOC & Documentation Body */}

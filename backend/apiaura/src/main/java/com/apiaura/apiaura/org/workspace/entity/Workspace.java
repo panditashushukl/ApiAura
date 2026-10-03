@@ -26,10 +26,10 @@ import java.util.Set;
 )
 public class Workspace extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(
             name = "organization_id",
-            nullable = false
+            nullable = true
     )
     private Organization organization;
 

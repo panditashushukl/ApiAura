@@ -33,7 +33,7 @@ export async function createUser(
         ApiResponse<User>
     >("/auth/register", {
         method: "POST",
-        data: JSON.stringify(request),
+        data: request,
     });
 
     return response.data;
@@ -47,7 +47,7 @@ export async function updateUser(
         ApiResponse<User>
     >(`/users/${userId}`, {
         method: "PATCH",
-        data: JSON.stringify(request),
+        data: request,
     });
 
     return response.data;
@@ -75,4 +75,31 @@ export async function deleteUser(
             method: "DELETE",
         }
     );
+}
+
+export async function getMyProfile(): Promise<User> {
+    const response = await apiClient<ApiResponse<User>>("/users/me");
+    return response.data;
+}
+
+export async function updateMyProfile(request: UpdateUserRequest): Promise<User> {
+    const response = await apiClient<ApiResponse<User>>("/users/me", {
+        method: "PATCH",
+        data: request,
+    });
+    return response.data;
+}
+
+export async function changeMyPassword(request: { currentPassword: string; newPassword: string }): Promise<void> {
+    await apiClient<ApiResponse<void>>("/users/me/change-password", {
+        method: "POST",
+        data: request,
+    });
+}
+
+export async function adminResetPassword(userId: string, request: { newPassword: string }): Promise<void> {
+    await apiClient<ApiResponse<void>>(`/users/${userId}/reset-password`, {
+        method: "POST",
+        data: request,
+    });
 }

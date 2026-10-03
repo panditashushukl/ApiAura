@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Edit, ShieldAlert, Trash2, Eye, UserCheck, AlertCircle } from "lucide-react";
+import { Search, Edit, ShieldAlert, Trash2, Eye, UserCheck, AlertCircle, KeyRound } from "lucide-react";
 
 import { useUsers } from "../hooks/use-users";
 import { useDeleteUser } from "../hooks/use-delete-user";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { CreateUserDialog } from "./create-user-dialog";
 import { EditUserDialog } from "./edit-user-dialog";
 import { UserStatusDialog } from "./user-status-dialog";
+import { ResetPasswordDialog } from "./reset-password-dialog";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -19,6 +20,8 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { Can } from "@/features/auth/components/can";
 import { User, UserStatus } from "../types/user.types";
 import { useToast } from "@/components/feedback/toast-system";
+
+import { OrganizationRequestsManager } from "@/features/organizations/components/organization-requests-manager";
 
 export function UserList() {
   const { data: users = [], isLoading, isError, error, refetch } = useUsers();
@@ -33,6 +36,7 @@ export function UserList() {
   // Dialog state
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [statusTargetUser, setStatusTargetUser] = useState<{ user: User; targetStatus: UserStatus } | null>(null);
+  const [resetPasswordTargetUser, setResetPasswordTargetUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   const filteredUsers = useMemo(() => {
@@ -40,7 +44,8 @@ export function UserList() {
       const matchesSearch =
         search.trim() === "" ||
         user.name?.toLowerCase().includes(search.toLowerCase()) ||
-        user.email.toLowerCase().includes(search.toLowerCase());
+        user.email.toLowerCase().includes(search.toLowerCase()) ||
+        user.mobileNumber?.toLowerCase().includes(search.toLowerCase());
 
       const matchesStatus =
         statusFilter === "ALL" || user.status === statusFilter;
@@ -73,7 +78,7 @@ export function UserList() {
 
   return (
     <Can permission="USER_READ" fallback={<ErrorState title="Access Denied" message="You do not have permission to view users." />}>
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -88,6 +93,9 @@ export function UserList() {
           </Can>
         </div>
 
+        {/* Pending Organization Join Requests Section */}
+        <OrganizationRequestsManager />
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 max-w-sm">
@@ -98,7 +106,7 @@ export function UserList() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search by name or email..."
+              placeholder="Search by name, email, or mobile..."
               className="pl-9"
             />
           </div>
@@ -132,6 +140,8 @@ export function UserList() {
               <thead>
                 <tr className="border-b border-[rgb(var(--border))] bg-[rgb(var(--muted))]/50 text-left text-xs font-medium text-[rgb(var(--muted-foreground))]">
                   <th className="px-5 py-3">User</th>
+                  <th className="px-5 py-3">Mobile</th>
+                  <th className="px-5 py-3">Organization</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
                   <th className="px-5 py-3 text-right">Actions</th>
@@ -147,6 +157,14 @@ export function UserList() {
                       <div className="text-xs text-[rgb(var(--muted-foreground))]">
                         {user.email}
                       </div>
+                    </td>
+
+                    <td className="px-5 py-4 text-xs font-mono text-[rgb(var(--muted-foreground))]">
+                      {user.mobileNumber || "—"}
+                    </td>
+
+                    <td className="px-5 py-4 text-xs font-semibold text-[rgb(var(--primary))]">
+                      {user.organizationName || "—"}
                     </td>
 
                     <td className="px-5 py-4">
@@ -182,6 +200,16 @@ export function UserList() {
                           onClick={() => setEditingUser(user)}
                         >
                           <Edit className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Reset Password"
+                          onClick={() => setResetPasswordTargetUser(user)}
+                          className="text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
+                        >
+                          <KeyRound className="h-4 w-4" />
                         </Button>
 
                         {user.status !== "ACTIVE" ? (
@@ -262,6 +290,12 @@ export function UserList() {
           targetStatus={statusTargetUser?.targetStatus ?? null}
           open={Boolean(statusTargetUser)}
           onOpenChange={(open) => !open && setStatusTargetUser(null)}
+        />
+
+        <ResetPasswordDialog
+          user={resetPasswordTargetUser}
+          open={Boolean(resetPasswordTargetUser)}
+          onOpenChange={(open) => !open && setResetPasswordTargetUser(null)}
         />
 
         <ConfirmDialog

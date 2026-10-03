@@ -34,6 +34,14 @@ public class SecurityConfig {
 
                 .cors(Customizer.withDefaults())
 
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"success\":false,\"error\":\"Unauthorized\",\"message\":\"Authentication required or token expired\"}");
+                        })
+                )
+
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS

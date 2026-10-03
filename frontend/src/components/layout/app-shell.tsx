@@ -3,8 +3,10 @@
 import { ReactNode } from "react";
 
 import { Sidebar } from "./sidebar";
+import { SecondarySidebar } from "./secondary-sidebar";
 import { Topbar } from "./topbar";
 import { useUIStore } from "@/stores/ui.store";
+import { ProtectedRoute } from "@/features/auth/components/protected-route";
 
 interface AppShellProps {
     children: ReactNode;
@@ -19,18 +21,20 @@ export function AppShell({
     } = useUIStore();
 
     return (
-        <div
-            className="
-                flex
-                h-screen
-                overflow-hidden
-                bg-[rgb(var(--background))]
-                text-[rgb(var(--foreground))]
-            "
-        >
-            {/* Desktop sidebar */}
+        <ProtectedRoute requireAuth={true}>
+            <div
+                className="
+                    flex
+                    h-screen
+                    overflow-hidden
+                    bg-[rgb(var(--background))]
+                    text-[rgb(var(--foreground))]
+                "
+            >
+            {/* Desktop primary & secondary sidebars */}
             <div className="hidden lg:flex">
                 <Sidebar />
+                <SecondarySidebar />
             </div>
 
             {/* Mobile sidebar */}
@@ -57,10 +61,12 @@ export function AppShell({
                             inset-y-0
                             left-0
                             z-50
+                            flex
                             lg:hidden
                         "
                     >
                         <Sidebar />
+                        <SecondarySidebar />
                     </div>
                 </>
             )}
@@ -79,5 +85,6 @@ export function AppShell({
                 </main>
             </div>
         </div>
-    );
+    </ProtectedRoute>
+  );
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Trash2, KeyRound } from "lucide-react";
+import { Search, Trash2, KeyRound, Edit } from "lucide-react";
 
 import { useAdminPermissions, useDeletePermission } from "../hooks/use-permissions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CreatePermissionDialog } from "./create-permission-dialog";
+import { EditPermissionDialog } from "./edit-permission-dialog";
 import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -22,6 +23,7 @@ export function PermissionList() {
 
   const [search, setSearch] = useState("");
   const [deletingPermission, setDeletingPermission] = useState<Permission | null>(null);
+  const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
 
   const filteredPermissions = useMemo(() => {
     if (!search.trim()) return permissions;
@@ -121,11 +123,23 @@ export function PermissionList() {
                     {permission.action || "EXECUTE"}
                   </td>
 
-                  <td className="px-5 py-4 text-right">
+                  <td className="px-5 py-4 text-right space-x-1">
+                    <Can permission="PERMISSION_UPDATE">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit Permission"
+                        onClick={() => setEditingPermission(permission)}
+                      >
+                        <Edit className="h-4 w-4 text-[rgb(var(--primary))]" />
+                      </Button>
+                    </Can>
+
                     <Can permission="PERMISSION_DELETE">
                       <Button
                         variant="ghost"
                         size="icon"
+                        title="Delete Permission"
                         onClick={() => setDeletingPermission(permission)}
                       >
                         <Trash2 className="h-4 w-4 text-[rgb(var(--danger))]" />
@@ -137,6 +151,12 @@ export function PermissionList() {
             </tbody>
           </table>
         </div>
+
+        <EditPermissionDialog
+          permission={editingPermission}
+          open={Boolean(editingPermission)}
+          onOpenChange={(open) => !open && setEditingPermission(null)}
+        />
 
         <ConfirmDialog
           open={Boolean(deletingPermission)}

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -30,26 +31,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                         new UsernameNotFoundException("Invalid email or password")
                 );
 
-        Set<GrantedAuthority> authorities = new HashSet<>();
-
-        if (user.getRoles() != null) {
-            user.getRoles().forEach(userRole -> {
-                var role = userRole.getRole();
-                if (role != null) {
-                    if (role.getCode() != null) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode()));
-                    }
-                    if (role.getPermissions() != null) {
-                        role.getPermissions().forEach(rolePermission -> {
-                            var permission = rolePermission.getPermission();
-                            if (permission != null && permission.getCode() != null) {
-                                authorities.add(new SimpleGrantedAuthority(permission.getCode()));
-                            }
-                        });
-                    }
-                }
-            });
-        }
+        Set<GrantedAuthority> authorities = getAuthoritiesForUser(user.getId());
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getEmail())
@@ -58,5 +40,41 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .authorities(authorities)
                 .build();
     }
-}
 
+    @Transactional(readOnly = true)
+    public Set<GrantedAuthority> getAuthoritiesForUser(UUID userId) {
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        try {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getRoles() != null) {
+                    user.getRoles().forEach(userRole -> {
+                        var role = userRole.getRole();
+                        if (role != null) {
+                            if (role.getCode() != null) {
+                                authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode().toUpperCase()));
+                                authorities.add(new SimpleGrantedAuthority(role.getCode().toUpperCase()));
+                            }
+                            if (role.getPermissions() != null) {
+                                role.getPermissions().forEach(rolePermission -> {
+                                    var permission = rolePermission.getPermission();
+                                    if (permission != null && permission.getCode() != null) {
+                                        authorities.add(new SimpleGrantedAuthority(permission.getCode()));
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (Exception ignored) {
+            // Fallback authorities
+        }
+
+        if (authorities.isEmpty()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+
+        return authorities;
+    }
+}

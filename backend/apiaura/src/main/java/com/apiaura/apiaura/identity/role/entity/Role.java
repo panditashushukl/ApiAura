@@ -35,6 +35,10 @@ public class Role extends BaseEntity {
     @Column(nullable = false)
     private boolean systemRole = false;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private com.apiaura.apiaura.org.organization.entity.Organization organization;
+
     @OneToMany(
             mappedBy = "role",
             cascade = CascadeType.ALL,

@@ -20,6 +20,7 @@ import java.util.UUID;
 public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository roleRepository;
+    private final com.apiaura.apiaura.identity.user.repository.UserRepository userRepository;
 
     @Override
     @Transactional
@@ -38,6 +39,15 @@ public class RoleServiceImpl implements RoleService {
         role.setDescription(request.getDescription());
         role.setSystemRole(request.isSystemRole());
 
+        try {
+            UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
+            userRepository.findById(currentUserId).ifPresent(user -> {
+                if (user.getOrganization() != null) {
+                    role.setOrganization(user.getOrganization());
+                }
+            });
+        } catch (Exception ignored) {}
+
         return RoleResponse.from(
                 roleRepository.save(role)
         );
@@ -50,6 +60,30 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public List<RoleResponse> getAll() {
+        try {
+            UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
+            var currentUserOpt = userRepository.findById(currentUserId);
+            if (currentUserOpt.isPresent()) {
+                var currentUser = currentUserOpt.get();
+                boolean isSuperAdmin = currentUser.getRoles().stream()
+                        .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
+
+                if (isSuperAdmin) {
+                    return roleRepository.findAll()
+                            .stream()
+                            .map(RoleResponse::from)
+                            .toList();
+                }
+
+                if (currentUser.getOrganization() != null) {
+                    return roleRepository.findByOrganizationIdOrSystemRoleTrue(currentUser.getOrganization().getId())
+                            .stream()
+                            .map(RoleResponse::from)
+                            .toList();
+                }
+            }
+        } catch (Exception ignored) {}
+
         return roleRepository.findAll()
                 .stream()
                 .map(RoleResponse::from)

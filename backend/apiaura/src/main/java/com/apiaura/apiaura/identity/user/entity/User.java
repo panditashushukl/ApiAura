@@ -37,6 +37,13 @@ public class User extends BaseEntity {
 
     private Instant lastLoginAt;
 
+    @Column(name = "mobile_number", length = 30)
+    private String mobileNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private com.apiaura.apiaura.org.organization.entity.Organization organization;
+
     @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,

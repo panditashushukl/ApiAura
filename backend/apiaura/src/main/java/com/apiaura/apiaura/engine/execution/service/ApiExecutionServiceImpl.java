@@ -27,6 +27,7 @@ import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
 import tools.jackson.core.JacksonException;
+import com.apiaura.apiaura.org.workspace.entity.Workspace;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,7 +96,7 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
                 .orElseThrow(() -> new ResourceNotFoundException("API request not found"));
 
         validateWorkspaceAccess(
-                apiRequest.getCollection().getWorkspace().getId(),
+                apiRequest.getCollection().getWorkspace(),
                 userId
         );
 
@@ -103,12 +104,20 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             throw new BadRequestException("API request is disabled");
         }
 
-        Environment environment = environmentRepository
-                .findByIdAndWorkspaceId(
-                        executeRequest.environmentId(),
-                        apiRequest.getCollection().getWorkspace().getId()
-                )
-                .orElseThrow(() -> new ResourceNotFoundException("Environment not found"));
+        Environment environment = null;
+        UUID workspaceId = apiRequest.getCollection().getWorkspace().getId();
+
+        if (executeRequest != null && executeRequest.environmentId() != null) {
+            environment = environmentRepository
+                    .findByIdAndWorkspaceId(executeRequest.environmentId(), workspaceId)
+                    .orElse(null);
+        }
+
+        if (environment == null) {
+            environment = environmentRepository
+                    .findByWorkspaceIdAndActiveTrue(workspaceId)
+                    .orElse(null);
+        }
 
         return executeRequest(apiRequest, environment, user);
     }
@@ -249,7 +258,7 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Environment environment
     ) {
         Collection<CollectionVariable> collectionVariables = apiRequest.getCollection().getVariables();
-        Collection<EnvironmentVariable> environmentVariables = environment.getVariables();
+        Collection<EnvironmentVariable> environmentVariables = environment != null ? environment.getVariables() : Collections.emptyList();
         return VariableResolver.buildVariables(collectionVariables, environmentVariables);
     }
 
@@ -455,12 +464,16 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
     }
 
     private void validateWorkspaceAccess(
-            UUID workspaceId,
+            Workspace workspace,
             UUID userId
     ) {
+        if (workspace != null && workspace.getCreatedBy() != null && workspace.getCreatedBy().getId().equals(userId)) {
+            return;
+        }
+
         boolean isMember = workspaceMemberRepository
                 .existsByWorkspaceIdAndUserIdAndStatus(
-                        workspaceId,
+                        workspace != null ? workspace.getId() : null,
                         userId,
                         "ACTIVE"
                 );

@@ -7,7 +7,6 @@ import java.util.UUID;
 
 public record ExecuteApiRequest(
 
-        @NotNull(message = "Environment ID is required")
         UUID environmentId,
 
         Map<String, String> variables

@@ -37,18 +37,19 @@ export async function getWorkspace(
 }
 
 export async function createWorkspace(
-    organizationId: string,
+    organizationId: string | null | undefined,
     request: CreateWorkspaceRequest
 ): Promise<Workspace> {
+    const url = organizationId
+        ? `/workspaces/organization/${organizationId}`
+        : `/workspaces`;
+
     const response = await apiClient<
         ApiResponse<Workspace>
-    >(
-        `/workspaces/organization/${organizationId}`,
-        {
-            method: "POST",
-            data: JSON.stringify(request),
-        }
-    );
+    >(url, {
+        method: "POST",
+        data: request,
+    });
 
     return response.data;
 }
@@ -63,7 +64,7 @@ export async function updateWorkspace(
         `/workspaces/${workspaceId}`,
         {
             method: "PATCH",
-            data: JSON.stringify(request),
+            data: request,
         }
     );
 

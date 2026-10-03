@@ -28,7 +28,9 @@ public class WorkspaceResponse {
         return WorkspaceResponse.builder()
                 .id(workspace.getId())
                 .organizationId(
-                        workspace.getOrganization().getId()
+                        workspace.getOrganization() != null
+                                ? workspace.getOrganization().getId()
+                                : null
                 )
                 .name(workspace.getName())
                 .slug(workspace.getSlug())

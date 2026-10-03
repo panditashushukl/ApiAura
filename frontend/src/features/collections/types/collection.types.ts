@@ -3,7 +3,8 @@ export interface Collection {
   workspaceId: string;
   name: string;
   description?: string | null;
-  baseUrl?: string | null;
+  preRequestScript?: string | null;
+  postRequestScript?: string | null;
   documentation?: string | null;
   createdBy: string;
   createdAt: string;
@@ -13,14 +14,16 @@ export interface Collection {
 export interface CreateCollectionRequest {
   name: string;
   description?: string;
-  baseUrl?: string;
+  preRequestScript?: string;
+  postRequestScript?: string;
   documentation?: string;
 }
 
 export interface UpdateCollectionRequest {
   name?: string;
   description?: string;
-  baseUrl?: string;
+  preRequestScript?: string;
+  postRequestScript?: string;
   documentation?: string;
 }
 

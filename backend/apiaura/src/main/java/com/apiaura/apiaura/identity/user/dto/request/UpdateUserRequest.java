@@ -14,4 +14,7 @@ public class UpdateUserRequest {
 
     @Email
     private String email;
+
+    @Size(max = 30)
+    private String mobileNumber;
 }

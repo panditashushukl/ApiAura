@@ -60,8 +60,8 @@ public class CollectionServiceImpl implements CollectionService {
         collection.setWorkspace(workspace);
         collection.setCreatedBy(user);
         collection.setName(name);
-        collection.setDescription(normalizeNullable(request.description()));
-        collection.setBaseUrl(normalizeNullable(request.baseUrl()));
+        collection.setPreRequestScript(normalizeNullable(request.preRequestScript()));
+        collection.setPostRequestScript(normalizeNullable(request.postRequestScript()));
         collection.setDocumentation(
                 normalizeNullable(request.documentation())
         );
@@ -144,9 +144,15 @@ public class CollectionServiceImpl implements CollectionService {
             );
         }
 
-        if (request.baseUrl() != null) {
-            collection.setBaseUrl(
-                    normalizeNullable(request.baseUrl())
+        if (request.preRequestScript() != null) {
+            collection.setPreRequestScript(
+                    normalizeNullable(request.preRequestScript())
+            );
+        }
+
+        if (request.postRequestScript() != null) {
+            collection.setPostRequestScript(
+                    normalizeNullable(request.postRequestScript())
             );
         }
 

@@ -59,6 +59,12 @@ public class CollectionFolder extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "pre_request_script", columnDefinition = "TEXT")
+    private String preRequestScript;
+
+    @Column(name = "post_request_script", columnDefinition = "TEXT")
+    private String postRequestScript;
+
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 }

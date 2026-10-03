@@ -52,7 +52,7 @@ export async function createEnvironment(
     `/workspaces/${workspaceId}/environments`,
     {
       method: "POST",
-      data: JSON.stringify(request),
+      data: request,
     }
   );
   return response.data;
@@ -66,7 +66,7 @@ export async function updateEnvironment(
     `/environments/${environmentId}`,
     {
       method: "PATCH",
-      data: JSON.stringify(request),
+      data: request,
     }
   );
   return response.data;
@@ -111,7 +111,7 @@ export async function createEnvironmentVariable(
     `/environments/${environmentId}/variables`,
     {
       method: "POST",
-      data: JSON.stringify(request),
+      data: request,
     }
   );
   return response.data;
@@ -126,7 +126,7 @@ export async function updateEnvironmentVariable(
     `/environments/${environmentId}/variables/${variableId}`,
     {
       method: "PATCH",
-      data: JSON.stringify(request),
+      data: request,
     }
   );
   return response.data;

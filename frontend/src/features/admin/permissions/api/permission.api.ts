@@ -34,7 +34,21 @@ export async function createPermission(
         ApiResponse<Permission>
     >("/permissions", {
         method: "POST",
-        data: JSON.stringify(request),
+        data: request,
+    });
+
+    return response.data;
+}
+
+export async function updatePermission(
+    permissionId: string,
+    request: Partial<CreatePermissionRequest>
+) {
+    const response = await apiClient<
+        ApiResponse<Permission>
+    >(`/permissions/${permissionId}`, {
+        method: "PATCH",
+        data: request,
     });
 
     return response.data;

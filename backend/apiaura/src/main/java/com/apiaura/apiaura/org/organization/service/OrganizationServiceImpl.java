@@ -24,6 +24,8 @@ public class OrganizationServiceImpl
 
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final com.apiaura.apiaura.identity.role.repository.RoleRepository roleRepository;
+    private final com.apiaura.apiaura.identity.role.repository.UserRoleRepository userRoleRepository;
 
     @Override
     @Transactional
@@ -53,9 +55,27 @@ public class OrganizationServiceImpl
         organization.setSlug(request.getSlug());
         organization.setOwner(owner);
 
-        return OrganizationResponse.from(
-                organizationRepository.save(organization)
-        );
+        organization = organizationRepository.save(organization);
+
+        // Update owner's organization association
+        owner.setOrganization(organization);
+
+        // Assign ADMIN role if not already assigned
+        final Organization savedOrg = organization;
+        roleRepository.findByCode("ADMIN").ifPresent(adminRole -> {
+            if (!userRoleRepository.existsByUserIdAndRoleId(owner.getId(), adminRole.getId())) {
+                com.apiaura.apiaura.identity.role.entity.UserRole ur = new com.apiaura.apiaura.identity.role.entity.UserRole();
+                ur.setUser(owner);
+                ur.setRole(adminRole);
+                ur.setAssignedAt(java.time.Instant.now());
+                userRoleRepository.save(ur);
+                owner.getRoles().add(ur);
+            }
+        });
+
+        userRepository.save(owner);
+
+        return OrganizationResponse.from(savedOrg);
     }
 
     @Override

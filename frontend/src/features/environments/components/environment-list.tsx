@@ -23,6 +23,7 @@ import {
 import { CreateEnvironmentDialog } from "./create-environment-dialog";
 import { EditEnvironmentDialog } from "./edit-environment-dialog";
 import { EnvironmentVariableTable } from "./environment-variable-table";
+import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
 import { useToast } from "@/components/feedback/toast-system";
 import type { Environment } from "../types/environment.types";
 
@@ -40,6 +41,7 @@ export function EnvironmentList({ workspaceId }: EnvironmentListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedEnvId, setExpandedEnvId] = useState<string | null>(null);
   const [editingEnv, setEditingEnv] = useState<Environment | null>(null);
+  const [deletingEnv, setDeletingEnv] = useState<Environment | null>(null);
 
   const filteredEnvironments = environments.filter(
     (e) =>
@@ -63,14 +65,17 @@ export function EnvironmentList({ workspaceId }: EnvironmentListProps) {
     }
   };
 
-  const handleDelete = (env: Environment) => {
-    if (confirm(`Are you sure you want to delete environment "${env.name}"?`)) {
-      deleteEnv.mutate(env.id, {
-        onSuccess: () => toast.success("Environment deleted"),
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : "Failed to delete environment"),
-      });
-    }
+  const confirmDelete = () => {
+    if (!deletingEnv) return;
+    deleteEnv.mutate(deletingEnv.id, {
+      onSuccess: () => {
+        toast.success(`Environment "${deletingEnv.name}" deleted`);
+        setDeletingEnv(null);
+      },
+      onError: (err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to delete environment");
+      },
+    });
   };
 
   const toggleExpand = (envId: string) => {
@@ -136,14 +141,14 @@ export function EnvironmentList({ workspaceId }: EnvironmentListProps) {
               return (
                 <div
                   key={env.id}
-                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] overflow-hidden transition-colors"
+                  className="rounded-xl border border-[rgb(var(--border))]/60 bg-[rgb(var(--card))]/70 overflow-hidden transition-all shadow-xs hover:border-[rgb(var(--border))]"
                 >
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => toggleExpand(env.id)}
-                        className="text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]"
+                        className="text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))] transition"
                       >
                         {isExpanded ? (
                           <ChevronDown className="h-4 w-4" />
@@ -179,37 +184,42 @@ export function EnvironmentList({ workspaceId }: EnvironmentListProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* Uniform Action Buttons */}
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => handleToggleActive(env)}
-                        className="h-7 text-xs"
+                        className="h-8 text-xs font-semibold px-3 mr-1"
                       >
                         {env.active ? "Deactivate" : "Set Active"}
                       </Button>
+
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => setEditingEnv(env)}
-                        className="h-7 w-7 p-0"
+                        className="h-8 w-8 text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]"
+                        title="Edit Environment"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
+
                       <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(env)}
-                        className="h-7 w-7 p-0 text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--danger))]"
+                        size="icon"
+                        onClick={() => setDeletingEnv(env)}
+                        className="h-8 w-8 text-[rgb(var(--danger))] hover:bg-[rgb(var(--danger))]/10"
+                        title="Delete Environment"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
 
                   {/* Variables Table Accordion Content */}
                   {isExpanded && (
-                    <div className="border-t border-[rgb(var(--border))] p-4 bg-[rgb(var(--muted))/20]">
+                    <div className="border-t border-[rgb(var(--border))]/60 p-4 bg-[rgb(var(--muted))/20]">
                       <h4 className="text-xs font-semibold mb-3 text-[rgb(var(--muted-foreground))]">
                         Environment Variables
                       </h4>
@@ -231,6 +241,17 @@ export function EnvironmentList({ workspaceId }: EnvironmentListProps) {
         onOpenChange={(open) => {
           if (!open) setEditingEnv(null);
         }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(deletingEnv)}
+        onOpenChange={(open) => !open && setDeletingEnv(null)}
+        title="Delete Environment"
+        description={`Are you sure you want to delete environment "${deletingEnv?.name}"? All associated environment variables will be permanently removed.`}
+        confirmText="Delete Environment"
+        variant="danger"
+        onConfirm={confirmDelete}
       />
     </div>
   );

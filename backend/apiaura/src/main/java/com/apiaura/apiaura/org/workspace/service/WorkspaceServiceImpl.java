@@ -36,23 +36,32 @@ public class WorkspaceServiceImpl
             UUID createdBy,
             CreateWorkspaceRequest request
     ) {
-
-        if (workspaceRepository.existsByOrganizationIdAndSlug(
-                organizationId,
-                request.getSlug()
-        )) {
-            throw new BadRequestException(
-                    "Workspace slug already exists"
-            );
+        Organization organization = null;
+        if (organizationId != null) {
+            if (workspaceRepository.existsByOrganizationIdAndSlug(
+                    organizationId,
+                    request.getSlug()
+            )) {
+                throw new BadRequestException(
+                        "Workspace slug already exists in this organization"
+                );
+            }
+            organization = organizationRepository.findById(organizationId)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Organization not found"
+                            )
+                    );
+        } else {
+            if (workspaceRepository.existsByCreatedByIdAndSlug(
+                    createdBy,
+                    request.getSlug()
+            )) {
+                throw new BadRequestException(
+                        "Workspace slug already exists"
+                );
+            }
         }
-
-        Organization organization =
-                organizationRepository.findById(organizationId)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Organization not found"
-                                )
-                        );
 
         User creator = userRepository.findById(createdBy)
                 .orElseThrow(() ->
@@ -97,9 +106,18 @@ public class WorkspaceServiceImpl
     public List<WorkspaceResponse> getByUser(
             UUID userId
     ) {
-        return workspaceRepository
-                .findByCreatedById(userId)
-                .stream()
+        User user = userRepository.findById(userId).orElse(null);
+        List<Workspace> list;
+        if (user != null && user.getOrganization() != null) {
+            list = workspaceRepository.findByCreatedByIdOrOrganizationId(
+                    userId,
+                    user.getOrganization().getId()
+            );
+        } else {
+            list = workspaceRepository.findByCreatedById(userId);
+        }
+        return list.stream()
+                .distinct()
                 .map(WorkspaceResponse::from)
                 .toList();
     }
@@ -114,16 +132,22 @@ public class WorkspaceServiceImpl
         Workspace workspace = findWorkspace(workspaceId);
 
         if (request.getSlug() != null &&
-                !request.getSlug().equals(workspace.getSlug()) &&
-                workspaceRepository
-                        .existsByOrganizationIdAndSlug(
-                                workspace.getOrganization().getId(),
-                                request.getSlug()
-                        )) {
-
-            throw new BadRequestException(
-                    "Workspace slug already exists"
+                !request.getSlug().equals(workspace.getSlug())) {
+            boolean slugExists = workspace.getOrganization() != null
+                    ? workspaceRepository.existsByOrganizationIdAndSlug(
+                    workspace.getOrganization().getId(),
+                    request.getSlug()
+            )
+                    : workspaceRepository.existsByCreatedByIdAndSlug(
+                    workspace.getCreatedBy().getId(),
+                    request.getSlug()
             );
+
+            if (slugExists) {
+                throw new BadRequestException(
+                        "Workspace slug already exists"
+                );
+            }
         }
 
         if (request.getName() != null) {

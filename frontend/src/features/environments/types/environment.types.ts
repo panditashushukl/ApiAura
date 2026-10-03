@@ -26,6 +26,7 @@ export interface EnvironmentVariable {
 
 export interface CreateEnvironmentRequest {
   name: string;
+  slug?: string;
   description?: string;
 }
 
