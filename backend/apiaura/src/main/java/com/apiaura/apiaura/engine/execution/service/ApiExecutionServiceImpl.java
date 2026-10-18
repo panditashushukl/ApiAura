@@ -39,8 +39,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
-import static com.apiaura.apiaura.foundation.common.enums.AuthType.*;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional
 public class ApiExecutionServiceImpl implements ApiExecutionService {
@@ -132,6 +133,7 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
         execution.setEnvironment(environment);
         execution.setExecutedBy(user);
         execution.setMethod(apiRequest.getMethod().name());
+        execution.setExecutedAt(Instant.now());
 
         Instant start = Instant.now();
 
@@ -231,25 +233,36 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             execution.setStatus(resolveStatus(response.statusCode()));
 
         } catch (HttpTimeoutException exception) {
+            log.warn("API execution timeout for request ID {} [URL: {}]: {}", apiRequest.getId(), execution.getResolvedUrl(), exception.getMessage());
             execution.setStatus(ExecutionStatus.TIMEOUT);
-            execution.setErrorMessage("Request timed out");
+            execution.setErrorMessage("Request timed out after 10 seconds");
             execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (IOException exception) {
+            log.error("API execution network error for request ID {} [URL: {}]: {}", apiRequest.getId(), execution.getResolvedUrl(), exception.getMessage(), exception);
             execution.setStatus(ExecutionStatus.NETWORK_ERROR);
-            execution.setErrorMessage(exception.getMessage());
+            String errorMsg = exception.getMessage() != null && !exception.getMessage().isBlank()
+                    ? exception.getMessage()
+                    : "Network error (" + exception.getClass().getSimpleName() + ")";
+            execution.setErrorMessage(errorMsg);
             execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            log.error("API execution interrupted for request ID {} [URL: {}]", apiRequest.getId(), execution.getResolvedUrl(), exception);
             execution.setStatus(ExecutionStatus.FAILED);
             execution.setErrorMessage("Request execution interrupted");
             execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         } catch (Exception exception) {
+            log.error("API execution exception for request ID {} [URL: {}]: {}", apiRequest.getId(), execution.getResolvedUrl(), exception.getMessage(), exception);
             execution.setStatus(ExecutionStatus.FAILED);
-            execution.setErrorMessage(exception.getMessage());
+            String errorMsg = exception.getMessage() != null && !exception.getMessage().isBlank()
+                    ? exception.getMessage()
+                    : exception.getClass().getSimpleName() + ": Execution failed";
+            execution.setErrorMessage(errorMsg);
             execution.setDurationMs(Duration.between(start, Instant.now()).toMillis());
         }
 
         RequestExecution saved = executionRepository.save(execution);
+        log.info("API execution completed with status {} for request ID {}", saved.getStatus(), apiRequest.getId());
         return ApiExecutionResponse.from(saved);
     }
 
@@ -267,6 +280,17 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
             Map<String, String> variables
     ) {
         String url = VariableResolver.resolve(request.getUrl(), variables);
+        if (url == null || url.isBlank()) {
+            throw new BadRequestException("Request URL cannot be empty");
+        }
+        url = url.trim();
+        if (!url.toLowerCase().startsWith("http://") && !url.toLowerCase().startsWith("https://")) {
+            if (url.startsWith("localhost") || url.startsWith("127.0.0.1")) {
+                url = "http://" + url;
+            } else {
+                url = "https://" + url;
+            }
+        }
 
         if (request.getPathParameters() != null) {
             for (PathParameter parameter : request.getPathParameters()) {
@@ -299,7 +323,7 @@ public class ApiExecutionServiceImpl implements ApiExecutionService {
         try {
             uri = URI.create(url);
         } catch (IllegalArgumentException exception) {
-            throw new BadRequestException("Invalid request URL");
+            throw new BadRequestException("Invalid request URL: " + url);
         }
 
         String scheme = uri.getScheme();

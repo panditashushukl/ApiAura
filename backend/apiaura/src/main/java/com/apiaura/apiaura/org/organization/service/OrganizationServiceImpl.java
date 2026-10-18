@@ -16,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest;
+import com.apiaura.apiaura.org.organization.repository.OrganizationMembershipRequestRepository;
+import com.apiaura.apiaura.identity.role.entity.Role;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -26,6 +30,7 @@ public class OrganizationServiceImpl
     private final UserRepository userRepository;
     private final com.apiaura.apiaura.identity.role.repository.RoleRepository roleRepository;
     private final com.apiaura.apiaura.identity.role.repository.UserRoleRepository userRoleRepository;
+    private final OrganizationMembershipRequestRepository membershipRequestRepository;
 
     @Override
     @Transactional
@@ -136,6 +141,14 @@ public class OrganizationServiceImpl
             organization.setSlug(request.getSlug());
         }
 
+        if (request.getOwnerId() != null) {
+            User newOwner = userRepository.findById(request.getOwnerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("New owner not found: " + request.getOwnerId()));
+            organization.setOwner(newOwner);
+            newOwner.setOrganization(organization);
+            userRepository.save(newOwner);
+        }
+
         return OrganizationResponse.from(
                 organizationRepository.save(organization)
         );
@@ -148,6 +161,31 @@ public class OrganizationServiceImpl
         Organization organization =
                 findOrganization(organizationId);
 
+        // 1. Unlink users associated with this organization
+        List<User> users = userRepository.findByOrganizationId(organizationId);
+        for (User user : users) {
+            user.setOrganization(null);
+        }
+        if (!users.isEmpty()) {
+            userRepository.saveAll(users);
+        }
+
+        // 2. Delete membership requests associated with this organization
+        List<OrganizationMembershipRequest> membershipRequests = membershipRequestRepository.findByOrganizationId(organizationId);
+        if (!membershipRequests.isEmpty()) {
+            membershipRequestRepository.deleteAll(membershipRequests);
+        }
+
+        // 3. Unlink organization-scoped custom roles
+        List<Role> roles = roleRepository.findByOrganizationId(organizationId);
+        for (Role role : roles) {
+            role.setOrganization(null);
+        }
+        if (!roles.isEmpty()) {
+            roleRepository.saveAll(roles);
+        }
+
+        // 4. Delete organization (Cascades to workspaces, collections, requests, test suites, etc.)
         organizationRepository.delete(organization);
     }
 

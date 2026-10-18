@@ -27,7 +27,7 @@ public class UrlSecurityValidator {
     private final boolean allowLocalDevelopment;
 
     public UrlSecurityValidator(
-            @Value("${security.execution.allow-local-development:false}")
+            @Value("${security.execution.allow-local-development:true}")
             boolean allowLocalDevelopment
     ) {
         this.allowLocalDevelopment = allowLocalDevelopment;

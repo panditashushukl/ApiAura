@@ -1,5 +1,7 @@
 package com.apiaura.apiaura.api.collection.entity;
 
+import com.apiaura.apiaura.api.request.entity.ApiRequest;
+import com.apiaura.apiaura.engine.testing.entity.TestSuite;
 import com.apiaura.apiaura.foundation.common.entity.BaseEntity;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.org.workspace.entity.Workspace;
@@ -85,4 +87,18 @@ public class Collection extends BaseEntity {
             orphanRemoval = true
     )
     private CollectionAuth auth;
+
+    @OneToMany(
+            mappedBy = "collection",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<ApiRequest> requests = new ArrayList<>();
+
+    @OneToMany(
+            mappedBy = "collection",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<TestSuite> testSuites = new ArrayList<>();
 }

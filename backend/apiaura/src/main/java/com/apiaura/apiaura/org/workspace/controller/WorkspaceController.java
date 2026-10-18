@@ -30,6 +30,22 @@ public class WorkspaceController {
         );
     }
 
+    @GetMapping("/all")
+    public ApiResponse<List<WorkspaceResponse>> getAll() {
+        return ApiResponse.success(
+                workspaceService.getAll()
+        );
+    }
+
+    @GetMapping("/user/{userId}")
+    public ApiResponse<List<WorkspaceResponse>> getByUser(
+            @PathVariable UUID userId
+    ) {
+        return ApiResponse.success(
+                workspaceService.getByUserSpecific(userId)
+        );
+    }
+
     @GetMapping("/{workspaceId}")
     public ApiResponse<WorkspaceResponse> getById(
             @PathVariable UUID workspaceId

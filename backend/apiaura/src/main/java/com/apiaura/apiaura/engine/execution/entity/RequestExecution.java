@@ -17,7 +17,7 @@ import lombok.Setter;
         indexes = {
                 @Index(name = "idx_execution_request", columnList = "request_id"),
                 @Index(name = "idx_execution_environment", columnList = "environment_id"),
-                @Index(name = "idx_execution_user", columnList = "executed_by"),
+                @Index(name = "idx_execution_user", columnList = "user_id"),
                 @Index(name = "idx_execution_created_at", columnList = "created_at")
         }
 )
@@ -40,7 +40,7 @@ public class RequestExecution extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-            name = "executed_by",
+            name = "user_id",
             nullable = false,
             foreignKey = @ForeignKey(name = "fk_execution_user")
     )
@@ -79,4 +79,16 @@ public class RequestExecution extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
+
+    @Column(name = "executed_at")
+    private java.time.Instant executedAt;
+
+    @PrePersist
+    @Override
+    protected void onCreate() {
+        super.onCreate();
+        if (this.executedAt == null) {
+            this.executedAt = java.time.Instant.now();
+        }
+    }
 }

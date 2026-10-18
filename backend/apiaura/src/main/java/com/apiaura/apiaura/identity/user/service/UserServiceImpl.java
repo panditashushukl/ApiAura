@@ -21,6 +21,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
 
     @Override
     public UserResponse getById(UUID userId) {
@@ -96,6 +97,33 @@ public class UserServiceImpl implements UserService {
 
         if (request.getMobileNumber() != null) {
             user.setMobileNumber(request.getMobileNumber());
+        }
+
+        if (Boolean.TRUE.equals(request.getClearOrganization())) {
+            user.setOrganization(null);
+        } else if (request.getOrganizationId() != null) {
+            try {
+                UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
+                User currentUser = findUser(currentUserId);
+                boolean isSuperAdmin = currentUser.getRoles().stream()
+                        .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
+
+                com.apiaura.apiaura.org.organization.entity.Organization targetOrg = organizationRepository.findById(request.getOrganizationId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+
+                if (!isSuperAdmin) {
+                    if (currentUser.getOrganization() == null || !currentUser.getOrganization().getId().equals(targetOrg.getId())) {
+                        throw new BadRequestException("Org admins can only assign users to their own organization");
+                    }
+                }
+                user.setOrganization(targetOrg);
+            } catch (Exception e) {
+                if (e instanceof BadRequestException || e instanceof ResourceNotFoundException) {
+                    throw e;
+                }
+                // Fallback for direct service updates
+                organizationRepository.findById(request.getOrganizationId()).ifPresent(user::setOrganization);
+            }
         }
 
         return UserResponse.from(userRepository.save(user));

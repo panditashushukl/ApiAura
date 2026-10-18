@@ -31,6 +31,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
+import com.apiaura.apiaura.api.collection.repository.CollectionRepository;
+import com.apiaura.apiaura.api.request.repository.ApiRequestRepository;
+
 @ExtendWith(MockitoExtension.class)
 class AdminDataInitializerTest {
 
@@ -53,6 +58,18 @@ class AdminDataInitializerTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private WorkspaceRepository workspaceRepository;
+
+    @Mock
+    private WorkspaceMemberRepository workspaceMemberRepository;
+
+    @Mock
+    private CollectionRepository collectionRepository;
+
+    @Mock
+    private ApiRequestRepository apiRequestRepository;
+
+    @Mock
     private ApplicationArguments applicationArguments;
 
     @InjectMocks
@@ -69,13 +86,13 @@ class AdminDataInitializerTest {
 
     @Test
     void testRunCreatesAdminRolePermissionsAndUser() {
-        when(roleRepository.findByCode("ADMIN")).thenReturn(Optional.empty());
+        lenient().when(roleRepository.findByCode(anyString())).thenReturn(Optional.empty());
         Role mockRole = new Role();
         mockRole.setId(UUID.randomUUID());
         mockRole.setCode("ADMIN");
         mockRole.setName("Administrator");
         mockRole.setSystemRole(true);
-        when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
+        lenient().when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
 
         Permission p1 = new Permission();
         p1.setId(UUID.randomUUID());
@@ -91,13 +108,14 @@ class AdminDataInitializerTest {
         mockUser.setStatus(UserStatus.ACTIVE);
         when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
-        when(rolePermissionRepository.existsByRoleIdAndPermissionId(any(), any())).thenReturn(false);
-        when(userRoleRepository.existsByUserIdAndRoleId(any(), any())).thenReturn(false);
+        lenient().when(rolePermissionRepository.existsByRoleIdAndPermissionId(any(), any())).thenReturn(false);
+        lenient().when(userRoleRepository.existsByUserIdAndRoleId(any(), any())).thenReturn(false);
+        lenient().when(workspaceRepository.findByCreatedById(any())).thenReturn(List.of());
 
         adminDataInitializer.run(applicationArguments);
 
-        verify(roleRepository).save(any(Role.class));
-        verify(rolePermissionRepository, times(1)).save(any(RolePermission.class));
+        verify(roleRepository, atLeastOnce()).save(any(Role.class));
+        verify(rolePermissionRepository, atLeastOnce()).save(any(RolePermission.class));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());

@@ -50,4 +50,11 @@ public class User extends BaseEntity {
             orphanRemoval = true
     )
     private Set<UserRole> roles = new HashSet<>();
+
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private Set<com.apiaura.apiaura.org.workspace.entity.WorkspaceMember> workspaceMemberships = new HashSet<>();
 }

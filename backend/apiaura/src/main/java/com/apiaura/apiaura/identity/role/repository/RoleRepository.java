@@ -17,4 +17,6 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     boolean existsByName(String name);
 
     java.util.List<Role> findByOrganizationIdOrSystemRoleTrue(UUID organizationId);
+
+    java.util.List<Role> findByOrganizationId(UUID organizationId);
 }

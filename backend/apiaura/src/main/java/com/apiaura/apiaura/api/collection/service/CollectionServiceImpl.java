@@ -211,6 +211,16 @@ public class CollectionServiceImpl implements CollectionService {
             return;
         }
 
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && user.getRoles() != null) {
+            boolean isSuperAdmin = user.getRoles().stream()
+                    .filter(ur -> ur.getRole() != null && ur.getRole().getCode() != null)
+                    .anyMatch(ur -> ur.getRole().getCode().equalsIgnoreCase("SUPER_ADMIN"));
+            if (isSuperAdmin) {
+                return;
+            }
+        }
+
         WorkspaceMember member = workspaceMemberRepository
                 .findByWorkspaceIdAndUserId(
                         workspace.getId(),

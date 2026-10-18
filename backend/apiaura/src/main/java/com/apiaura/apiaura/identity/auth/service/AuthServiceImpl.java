@@ -30,8 +30,23 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
+import com.apiaura.apiaura.api.collection.repository.CollectionRepository;
+import com.apiaura.apiaura.api.request.repository.ApiRequestRepository;
+import com.apiaura.apiaura.org.workspace.entity.Workspace;
+import com.apiaura.apiaura.org.workspace.entity.WorkspaceMember;
+import com.apiaura.apiaura.api.collection.entity.Collection;
+import com.apiaura.apiaura.api.request.entity.ApiRequest;
+import com.apiaura.apiaura.foundation.common.enums.WorkspaceStatus;
+import com.apiaura.apiaura.foundation.common.enums.HttpMethod;
+import com.apiaura.apiaura.foundation.common.enums.BodyType;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -44,6 +59,12 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
+    private final com.apiaura.apiaura.org.organization.repository.OrganizationMembershipRequestRepository membershipRequestRepository;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final CollectionRepository collectionRepository;
+    private final ApiRequestRepository apiRequestRepository;
 
     @Override
     @Transactional
@@ -83,7 +104,89 @@ public class AuthServiceImpl implements AuthService {
             savedUser.getRoles().add(ur);
         });
 
+        // Create pending organization join request if selected during registration
+        if (request.getOrganizationId() != null) {
+            organizationRepository.findById(request.getOrganizationId()).ifPresent(org -> {
+                com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest req =
+                        new com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest();
+                req.setUser(savedUser);
+                req.setOrganization(org);
+                req.setStatus(com.apiaura.apiaura.foundation.common.enums.MembershipRequestStatus.PENDING);
+                req.setMessage("Requested joining organization during registration");
+                req.setRequestedAt(Instant.now());
+                membershipRequestRepository.save(req);
+            });
+        }
+
+        // Create default workspace ("My Workspace"), collection ("My Collection"), and sample request
+        createDefaultWorkspaceForUser(savedUser);
+
         return createAuthResponse(savedUser);
+    }
+
+    private void createDefaultWorkspaceForUser(User user) {
+        try {
+            // 1. Create Default Workspace
+            Workspace workspace = new Workspace();
+            workspace.setName("My Workspace");
+
+            String baseSlug = "my-workspace";
+            String slug = baseSlug;
+            int counter = 1;
+            while (workspaceRepository.existsByCreatedByIdAndSlug(user.getId(), slug)) {
+                slug = baseSlug + "-" + counter++;
+            }
+            workspace.setSlug(slug);
+            workspace.setDescription("Default personal workspace for " + user.getName());
+            workspace.setCreatedBy(user);
+            workspace.setStatus(WorkspaceStatus.ACTIVE);
+
+            workspace = workspaceRepository.save(workspace);
+
+            // WorkspaceMember for creator
+            WorkspaceMember member = new WorkspaceMember();
+            member.setWorkspace(workspace);
+            member.setUser(user);
+            member.setInvitedBy(user);
+            member.setStatus("ACTIVE");
+            member.setJoinedAt(Instant.now());
+            workspaceMemberRepository.save(member);
+
+            // 2. Create Default Collection
+            Collection collection = new Collection();
+            collection.setWorkspace(workspace);
+            collection.setCreatedBy(user);
+            collection.setName("My Collection");
+            collection.setDescription("Default collection for API testing");
+            collection.setDocumentation("Contains sample API requests to help you get started with ApiAura.");
+
+            collection = collectionRepository.save(collection);
+
+            // 3. Create Default Placeholder ApiRequest
+            ApiRequest sampleRequest = new ApiRequest();
+            sampleRequest.setCollection(collection);
+            sampleRequest.setCreatedBy(user);
+            sampleRequest.setName("Sample Request");
+            sampleRequest.setMethod(HttpMethod.GET);
+            sampleRequest.setUrl("https://jsonplaceholder.typicode.com/todos/1");
+            sampleRequest.setDescription("Default GET request to test API execution");
+            sampleRequest.setDocumentation("Sends a GET request to JSONPlaceholder sample REST API endpoint.");
+            sampleRequest.setBodyType(BodyType.NONE);
+            sampleRequest.setEnabled(true);
+
+            apiRequestRepository.save(sampleRequest);
+            log.info("Successfully created default workspace 'My Workspace', collection 'My Collection', and sample request for user {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to create default workspace for user {}: {}", user.getEmail(), e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public List<com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse> getPublicOrganizations() {
+        return organizationRepository.findAll()
+                .stream()
+                .map(com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse::from)
+                .toList();
     }
 
     @Override

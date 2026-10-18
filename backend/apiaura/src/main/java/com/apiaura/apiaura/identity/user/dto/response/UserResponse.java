@@ -14,12 +14,23 @@ import java.util.UUID;
 @Builder
 public class UserResponse {
 
+    @Getter
+    @Builder
+    public static class UserWorkspaceInfo {
+        private UUID id;
+        private String name;
+        private String slug;
+        private boolean isMember;
+    }
+
     private UUID id;
     private String name;
     private String email;
     private String mobileNumber;
     private UUID organizationId;
     private String organizationName;
+    private String organizationSlug;
+    private List<UserWorkspaceInfo> workspaces;
     private UserStatus status;
     private Instant lastLoginAt;
     private Instant createdAt;
@@ -58,10 +69,50 @@ public class UserResponse {
 
         UUID orgId = null;
         String orgName = null;
+        String orgSlug = null;
+        List<UserWorkspaceInfo> workspaceInfos = new ArrayList<>();
+
         try {
             if (user.getOrganization() != null) {
                 orgId = user.getOrganization().getId();
                 orgName = user.getOrganization().getName();
+                orgSlug = user.getOrganization().getSlug();
+            }
+
+            java.util.Set<UUID> addedWsIds = new java.util.HashSet<>();
+
+            if (user.getWorkspaceMemberships() != null) {
+                user.getWorkspaceMemberships().forEach(wm -> {
+                    if (wm.getWorkspace() != null && addedWsIds.add(wm.getWorkspace().getId())) {
+                        workspaceInfos.add(UserWorkspaceInfo.builder()
+                                .id(wm.getWorkspace().getId())
+                                .name(wm.getWorkspace().getName())
+                                .slug(wm.getWorkspace().getSlug())
+                                .isMember("ACTIVE".equalsIgnoreCase(wm.getStatus()))
+                                .build());
+                    }
+                });
+            }
+
+            if (user.getOrganization() != null && user.getOrganization().getWorkspaces() != null) {
+                user.getOrganization().getWorkspaces().forEach(ws -> {
+                    if (addedWsIds.add(ws.getId())) {
+                        boolean isMember = false;
+                        if (user.getWorkspaceMemberships() != null) {
+                            isMember = user.getWorkspaceMemberships().stream()
+                                    .anyMatch(wm -> wm.getWorkspace() != null && wm.getWorkspace().getId().equals(ws.getId()) && "ACTIVE".equalsIgnoreCase(wm.getStatus()));
+                        }
+                        if (ws.getCreatedBy() != null && ws.getCreatedBy().getId().equals(user.getId())) {
+                            isMember = true;
+                        }
+                        workspaceInfos.add(UserWorkspaceInfo.builder()
+                                .id(ws.getId())
+                                .name(ws.getName())
+                                .slug(ws.getSlug())
+                                .isMember(isMember)
+                                .build());
+                    }
+                });
             }
         } catch (Exception ignored) {
         }
@@ -73,6 +124,8 @@ public class UserResponse {
                 .mobileNumber(user.getMobileNumber())
                 .organizationId(orgId)
                 .organizationName(orgName)
+                .organizationSlug(orgSlug)
+                .workspaces(workspaceInfos)
                 .status(user.getStatus())
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())

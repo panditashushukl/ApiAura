@@ -18,4 +18,6 @@ public interface AuthService {
     void logout(String refreshToken);
 
     void logoutAll(UUID userId);
+
+    java.util.List<com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse> getPublicOrganizations();
 }

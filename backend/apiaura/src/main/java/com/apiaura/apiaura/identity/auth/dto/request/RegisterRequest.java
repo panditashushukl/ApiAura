@@ -24,4 +24,6 @@ public class RegisterRequest {
 
     @Size(max = 30)
     private String mobileNumber;
+
+    private java.util.UUID organizationId;
 }

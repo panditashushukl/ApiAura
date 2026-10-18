@@ -23,6 +23,10 @@ public interface WorkspaceService {
 
     List<WorkspaceResponse> getByUser(UUID userId);
 
+    List<WorkspaceResponse> getByUserSpecific(UUID userId);
+
+    List<WorkspaceResponse> getAll();
+
     WorkspaceResponse update(
             UUID workspaceId,
             UpdateWorkspaceRequest request

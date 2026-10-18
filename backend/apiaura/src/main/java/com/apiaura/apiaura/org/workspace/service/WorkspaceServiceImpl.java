@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import com.apiaura.apiaura.org.workspace.entity.WorkspaceMember;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -28,6 +31,7 @@ public class WorkspaceServiceImpl
     private final WorkspaceRepository workspaceRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
 
     @Override
     @Transactional
@@ -79,9 +83,19 @@ public class WorkspaceServiceImpl
         workspace.setCreatedBy(creator);
         workspace.setStatus(WorkspaceStatus.ACTIVE);
 
-        return WorkspaceResponse.from(
-                workspaceRepository.save(workspace)
-        );
+        workspace = workspaceRepository.save(workspace);
+
+        if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspace.getId(), creator.getId())) {
+            WorkspaceMember member = new WorkspaceMember();
+            member.setWorkspace(workspace);
+            member.setUser(creator);
+            member.setInvitedBy(creator);
+            member.setStatus("ACTIVE");
+            member.setJoinedAt(java.time.Instant.now());
+            workspaceMemberRepository.save(member);
+        }
+
+        return WorkspaceResponse.from(workspace);
     }
 
     @Override
@@ -103,19 +117,79 @@ public class WorkspaceServiceImpl
     }
 
     @Override
+    public List<WorkspaceResponse> getAll() {
+        return workspaceRepository.findAll()
+                .stream()
+                .map(WorkspaceResponse::from)
+                .toList();
+    }
+
+    @Override
     public List<WorkspaceResponse> getByUser(
             UUID userId
     ) {
         User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return List.of();
+        }
+
+        boolean isSuperAdmin = false;
+        boolean isOrgAdmin = false;
+        try {
+            if (user.getRoles() != null) {
+                isSuperAdmin = user.getRoles().stream()
+                        .filter(ur -> ur.getRole() != null && ur.getRole().getCode() != null)
+                        .anyMatch(ur -> ur.getRole().getCode().equalsIgnoreCase("SUPER_ADMIN"));
+                isOrgAdmin = user.getRoles().stream()
+                        .filter(ur -> ur.getRole() != null && ur.getRole().getCode() != null)
+                        .anyMatch(ur -> ur.getRole().getCode().equalsIgnoreCase("ADMIN"));
+            }
+            if (user.getOrganization() != null && user.getOrganization().getOwner() != null && user.getOrganization().getOwner().getId().equals(userId)) {
+                isOrgAdmin = true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (isSuperAdmin) {
+            return getAll();
+        }
+
         List<Workspace> list;
-        if (user != null && user.getOrganization() != null) {
+        if (isOrgAdmin && user.getOrganization() != null) {
             list = workspaceRepository.findByCreatedByIdOrOrganizationId(
                     userId,
                     user.getOrganization().getId()
             );
         } else {
-            list = workspaceRepository.findByCreatedById(userId);
+            List<Workspace> createdWorkspaces = workspaceRepository.findByCreatedById(userId);
+            List<WorkspaceMember> memberRecords = workspaceMemberRepository.findByUserId(userId);
+            List<Workspace> memberWorkspaces = memberRecords.stream()
+                    .map(WorkspaceMember::getWorkspace)
+                    .filter(w -> w != null)
+                    .toList();
+
+            list = new java.util.ArrayList<>(createdWorkspaces);
+            list.addAll(memberWorkspaces);
         }
+
+        return list.stream()
+                .distinct()
+                .map(WorkspaceResponse::from)
+                .toList();
+    }
+
+    @Override
+    public List<WorkspaceResponse> getByUserSpecific(UUID userId) {
+        List<Workspace> createdWorkspaces = workspaceRepository.findByCreatedById(userId);
+        List<WorkspaceMember> memberRecords = workspaceMemberRepository.findByUserId(userId);
+        List<Workspace> memberWorkspaces = memberRecords.stream()
+                .map(WorkspaceMember::getWorkspace)
+                .filter(w -> w != null)
+                .toList();
+
+        List<Workspace> list = new java.util.ArrayList<>(createdWorkspaces);
+        list.addAll(memberWorkspaces);
+
         return list.stream()
                 .distinct()
                 .map(WorkspaceResponse::from)

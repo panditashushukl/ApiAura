@@ -23,6 +23,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
+import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
+import com.apiaura.apiaura.api.collection.repository.CollectionRepository;
+import com.apiaura.apiaura.api.request.repository.ApiRequestRepository;
+import com.apiaura.apiaura.org.workspace.entity.Workspace;
+import com.apiaura.apiaura.org.workspace.entity.WorkspaceMember;
+import com.apiaura.apiaura.api.collection.entity.Collection;
+import com.apiaura.apiaura.api.request.entity.ApiRequest;
+import com.apiaura.apiaura.foundation.common.enums.WorkspaceStatus;
+import com.apiaura.apiaura.foundation.common.enums.HttpMethod;
+import com.apiaura.apiaura.foundation.common.enums.BodyType;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -34,6 +46,10 @@ public class AdminDataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final CollectionRepository collectionRepository;
+    private final ApiRequestRepository apiRequestRepository;
 
     @Value("${security.admin.email}")
     private String adminEmail;
@@ -156,7 +172,62 @@ public class AdminDataInitializer implements ApplicationRunner {
             log.info("Assigned SUPER_ADMIN role to user {}", adminUser.getEmail());
         }
 
+        // 6. Ensure default workspace, collection & request exist for admin user
+        if (workspaceRepository.findByCreatedById(adminUser.getId()).isEmpty()) {
+            createDefaultWorkspaceForUser(adminUser);
+        }
+
         log.info("AdminDataInitializer completed successfully for admin user: {}", email);
+    }
+
+    private void createDefaultWorkspaceForUser(User user) {
+        try {
+            Workspace workspace = new Workspace();
+            workspace.setName("My Workspace");
+            String baseSlug = "my-workspace";
+            String slug = baseSlug;
+            int counter = 1;
+            while (workspaceRepository.existsByCreatedByIdAndSlug(user.getId(), slug)) {
+                slug = baseSlug + "-" + counter++;
+            }
+            workspace.setSlug(slug);
+            workspace.setDescription("Default personal workspace for " + user.getName());
+            workspace.setCreatedBy(user);
+            workspace.setStatus(WorkspaceStatus.ACTIVE);
+            workspace = workspaceRepository.save(workspace);
+
+            WorkspaceMember member = new WorkspaceMember();
+            member.setWorkspace(workspace);
+            member.setUser(user);
+            member.setInvitedBy(user);
+            member.setStatus("ACTIVE");
+            member.setJoinedAt(Instant.now());
+            workspaceMemberRepository.save(member);
+
+            Collection collection = new Collection();
+            collection.setWorkspace(workspace);
+            collection.setCreatedBy(user);
+            collection.setName("My Collection");
+            collection.setDescription("Default collection for API testing");
+            collection.setDocumentation("Contains sample API requests to help you get started with ApiAura.");
+            collection = collectionRepository.save(collection);
+
+            ApiRequest sampleRequest = new ApiRequest();
+            sampleRequest.setCollection(collection);
+            sampleRequest.setCreatedBy(user);
+            sampleRequest.setName("Sample Request");
+            sampleRequest.setMethod(HttpMethod.GET);
+            sampleRequest.setUrl("https://jsonplaceholder.typicode.com/todos/1");
+            sampleRequest.setDescription("Default GET request to test API execution");
+            sampleRequest.setDocumentation("Sends a GET request to JSONPlaceholder sample REST API endpoint.");
+            sampleRequest.setBodyType(BodyType.NONE);
+            sampleRequest.setEnabled(true);
+            apiRequestRepository.save(sampleRequest);
+
+            log.info("Successfully created default workspace, collection, and sample request for user {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to create default workspace for admin user {}: {}", user.getEmail(), e.getMessage(), e);
+        }
     }
 
     private void seedDefaultPermissions() {

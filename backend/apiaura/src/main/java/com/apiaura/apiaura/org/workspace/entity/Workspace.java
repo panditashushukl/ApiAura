@@ -1,6 +1,8 @@
 package com.apiaura.apiaura.org.workspace.entity;
 
 import com.apiaura.apiaura.api.collection.entity.Collection;
+import com.apiaura.apiaura.api.environment.entity.Environment;
+import com.apiaura.apiaura.api.workflow.entity.Workflow;
 import com.apiaura.apiaura.foundation.common.entity.BaseEntity;
 import com.apiaura.apiaura.foundation.common.enums.WorkspaceStatus;
 import com.apiaura.apiaura.org.organization.entity.Organization;
@@ -63,4 +65,18 @@ public class Workspace extends BaseEntity {
             orphanRemoval = true
     )
     private Set<Collection> collections = new HashSet<>();
+
+    @OneToMany(
+            mappedBy = "workspace",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private Set<Environment> environments = new HashSet<>();
+
+    @OneToMany(
+            mappedBy = "workspace",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private Set<Workflow> workflows = new HashSet<>();
 }

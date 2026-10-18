@@ -14,17 +14,24 @@ public class WorkspaceResponse {
 
     private UUID id;
     private UUID organizationId;
+    private String organizationName;
     private String name;
     private String slug;
     private String description;
     private WorkspaceStatus status;
     private UUID createdBy;
+    private String createdByName;
+    private String createdByEmail;
     private Instant createdAt;
     private Instant updatedAt;
 
     public static WorkspaceResponse from(
             Workspace workspace
     ) {
+        String orgName = workspace.getOrganization() != null ? workspace.getOrganization().getName() : null;
+        String createdByName = workspace.getCreatedBy() != null ? workspace.getCreatedBy().getName() : null;
+        String createdByEmail = workspace.getCreatedBy() != null ? workspace.getCreatedBy().getEmail() : null;
+
         return WorkspaceResponse.builder()
                 .id(workspace.getId())
                 .organizationId(
@@ -32,6 +39,7 @@ public class WorkspaceResponse {
                                 ? workspace.getOrganization().getId()
                                 : null
                 )
+                .organizationName(orgName)
                 .name(workspace.getName())
                 .slug(workspace.getSlug())
                 .description(workspace.getDescription())
@@ -41,6 +49,8 @@ public class WorkspaceResponse {
                                 ? workspace.getCreatedBy().getId()
                                 : null
                 )
+                .createdByName(createdByName)
+                .createdByEmail(createdByEmail)
                 .createdAt(workspace.getCreatedAt())
                 .updatedAt(workspace.getUpdatedAt())
                 .build();

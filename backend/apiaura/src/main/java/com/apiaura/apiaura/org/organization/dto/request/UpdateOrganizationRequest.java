@@ -13,4 +13,6 @@ public class UpdateOrganizationRequest {
 
     @Size(min = 2, max = 100)
     private String slug;
+
+    private java.util.UUID ownerId;
 }

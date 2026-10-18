@@ -17,4 +17,8 @@ public class UpdateUserRequest {
 
     @Size(max = 30)
     private String mobileNumber;
+
+    private java.util.UUID organizationId;
+
+    private Boolean clearOrganization;
 }

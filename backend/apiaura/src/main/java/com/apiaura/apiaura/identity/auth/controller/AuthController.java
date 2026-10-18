@@ -24,6 +24,13 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @GetMapping("/organizations")
+    public ApiResponse<java.util.List<com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse>> getPublicOrganizations() {
+        return ApiResponse.success(
+                authService.getPublicOrganizations()
+        );
+    }
+
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(
             @Valid @RequestBody RegisterRequest request,
