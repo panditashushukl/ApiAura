@@ -13,27 +13,21 @@ import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ApplicationContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
-
-import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
-import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
-import com.apiaura.apiaura.api.collection.repository.CollectionRepository;
-import com.apiaura.apiaura.api.request.repository.ApiRequestRepository;
-import com.apiaura.apiaura.org.workspace.entity.Workspace;
-import com.apiaura.apiaura.org.workspace.entity.WorkspaceMember;
-import com.apiaura.apiaura.api.collection.entity.Collection;
-import com.apiaura.apiaura.api.request.entity.ApiRequest;
-import com.apiaura.apiaura.foundation.common.enums.WorkspaceStatus;
-import com.apiaura.apiaura.foundation.common.enums.HttpMethod;
-import com.apiaura.apiaura.foundation.common.enums.BodyType;
+import java.util.function.Consumer;
 
 @Slf4j
 @Component
@@ -46,10 +40,22 @@ public class AdminDataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final WorkspaceRepository workspaceRepository;
-    private final WorkspaceMemberRepository workspaceMemberRepository;
-    private final CollectionRepository collectionRepository;
-    private final ApiRequestRepository apiRequestRepository;
+
+    @Autowired(required = false)
+    private com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
+
+    @Autowired(required = false)
+    private ApplicationContext applicationContext;
+
+    @Autowired(required = false)
+    private PlatformTransactionManager transactionManager;
+
+    private Consumer<Integer> exitHandler = System::exit;
+
+    // Package-private setter for unit testing exit behavior
+    void setExitHandler(Consumer<Integer> exitHandler) {
+        this.exitHandler = exitHandler;
+    }
 
     @Value("${security.admin.email}")
     private String adminEmail;
@@ -67,10 +73,34 @@ public class AdminDataInitializer implements ApplicationRunner {
     private String adminRoleName;
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
-        log.info("Running AdminDataInitializer...");
+        if (!isSeedRequested(args)) {
+            log.info("AdminDataInitializer: Seeding skipped (default behavior). Pass '--seed' or argument 'seed' via CLI to seed initial permissions, roles, and admin user.");
+            return;
+        }
 
+        log.info("AdminDataInitializer: CLI seeding requested. Starting database seeding...");
+
+        if (transactionManager != null) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> performSeeding(args));
+        } else {
+            performSeeding(args);
+        }
+
+        if (isExitRequested(args)) {
+            log.info("AdminDataInitializer: Exit requested via CLI flag ('--exit'). Shutting down application gracefully...");
+            int exitCode = 0;
+            if (applicationContext != null) {
+                exitCode = SpringApplication.exit(applicationContext, () -> 0);
+            }
+            if (exitHandler != null) {
+                exitHandler.accept(exitCode);
+            }
+        }
+    }
+
+    @Transactional
+    public void performSeeding(ApplicationArguments args) {
         // 1. Seed system default permissions if missing
         seedDefaultPermissions();
 
@@ -126,7 +156,16 @@ public class AdminDataInitializer implements ApplicationRunner {
         log.info("Assigned {} permissions to roles SUPER_ADMIN and ADMIN", allPermissions.size());
 
         // Assign basic read permissions to Guest Role
-        permissionRepository.findByCode("request:read").ifPresent(p -> {
+        permissionRepository.findByCode("api:read").ifPresent(p -> {
+            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(guestRole.getId(), p.getId())) {
+                RolePermission rp = new RolePermission();
+                rp.setRole(guestRole);
+                rp.setPermission(p);
+                rp.setAssignedAt(Instant.now());
+                rolePermissionRepository.save(rp);
+            }
+        });
+        permissionRepository.findByCode("collection:read").ifPresent(p -> {
             if (!rolePermissionRepository.existsByRoleIdAndPermissionId(guestRole.getId(), p.getId())) {
                 RolePermission rp = new RolePermission();
                 rp.setRole(guestRole);
@@ -136,16 +175,20 @@ public class AdminDataInitializer implements ApplicationRunner {
             }
         });
 
-        // 4. Find or create default Admin user
-        String email = (adminEmail != null && !adminEmail.isBlank())
+        // 4. Find or create default Admin user (allowing CLI override if passed)
+        String cliEmail = getOptionValue(args, "admin-email");
+        String cliPassword = getOptionValue(args, "admin-password");
+        String cliName = getOptionValue(args, "admin-name");
+
+        String email = cliEmail != null ? cliEmail.toLowerCase() : ((adminEmail != null && !adminEmail.isBlank())
                 ? adminEmail.trim().toLowerCase()
-                : "admin@apiaura.com";
-        String password = (adminPassword != null && !adminPassword.isBlank())
+                : "admin@apiaura.com");
+        String password = cliPassword != null ? cliPassword : ((adminPassword != null && !adminPassword.isBlank())
                 ? adminPassword
-                : "admin123";
-        String name = (adminName != null && !adminName.isBlank())
+                : "admin123");
+        String name = cliName != null ? cliName : ((adminName != null && !adminName.isBlank())
                 ? adminName
-                : "Super Admin";
+                : "Super Admin");
 
         User adminUser = userRepository.findByEmail(email)
                 .orElseGet(() -> {
@@ -172,119 +215,159 @@ public class AdminDataInitializer implements ApplicationRunner {
             log.info("Assigned SUPER_ADMIN role to user {}", adminUser.getEmail());
         }
 
-        // 6. Ensure default workspace, collection & request exist for admin user
-        if (workspaceRepository.findByCreatedById(adminUser.getId()).isEmpty()) {
-            createDefaultWorkspaceForUser(adminUser);
-        }
-
         log.info("AdminDataInitializer completed successfully for admin user: {}", email);
     }
 
-    private void createDefaultWorkspaceForUser(User user) {
-        try {
-            Workspace workspace = new Workspace();
-            workspace.setName("My Workspace");
-            String baseSlug = "my-workspace";
-            String slug = baseSlug;
-            int counter = 1;
-            while (workspaceRepository.existsByCreatedByIdAndSlug(user.getId(), slug)) {
-                slug = baseSlug + "-" + counter++;
-            }
-            workspace.setSlug(slug);
-            workspace.setDescription("Default personal workspace for " + user.getName());
-            workspace.setCreatedBy(user);
-            workspace.setStatus(WorkspaceStatus.ACTIVE);
-            workspace = workspaceRepository.save(workspace);
+    public void performSeeding() {
+        performSeeding(null);
+    }
 
-            WorkspaceMember member = new WorkspaceMember();
-            member.setWorkspace(workspace);
-            member.setUser(user);
-            member.setInvitedBy(user);
-            member.setStatus("ACTIVE");
-            member.setJoinedAt(Instant.now());
-            workspaceMemberRepository.save(member);
-
-            Collection collection = new Collection();
-            collection.setWorkspace(workspace);
-            collection.setCreatedBy(user);
-            collection.setName("My Collection");
-            collection.setDescription("Default collection for API testing");
-            collection.setDocumentation("Contains sample API requests to help you get started with ApiAura.");
-            collection = collectionRepository.save(collection);
-
-            ApiRequest sampleRequest = new ApiRequest();
-            sampleRequest.setCollection(collection);
-            sampleRequest.setCreatedBy(user);
-            sampleRequest.setName("Sample Request");
-            sampleRequest.setMethod(HttpMethod.GET);
-            sampleRequest.setUrl("https://jsonplaceholder.typicode.com/todos/1");
-            sampleRequest.setDescription("Default GET request to test API execution");
-            sampleRequest.setDocumentation("Sends a GET request to JSONPlaceholder sample REST API endpoint.");
-            sampleRequest.setBodyType(BodyType.NONE);
-            sampleRequest.setEnabled(true);
-            apiRequestRepository.save(sampleRequest);
-
-            log.info("Successfully created default workspace, collection, and sample request for user {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Failed to create default workspace for admin user {}: {}", user.getEmail(), e.getMessage(), e);
+    public boolean isSeedRequested(ApplicationArguments args) {
+        if (args == null) {
+            return false;
         }
+        if (args.containsOption("seed") || args.containsOption("seed-data") || args.containsOption("init-data")) {
+            return true;
+        }
+        List<String> nonOptionArgs = args.getNonOptionArgs();
+        if (nonOptionArgs != null) {
+            for (String arg : nonOptionArgs) {
+                if ("seed".equalsIgnoreCase(arg) || "seed-data".equalsIgnoreCase(arg) || "init-data".equalsIgnoreCase(arg)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isExitRequested(ApplicationArguments args) {
+        if (args == null) {
+            return false;
+        }
+        if (args.containsOption("exit") || args.containsOption("exit-after-seed") || args.containsOption("seed-only")) {
+            return true;
+        }
+        List<String> nonOptionArgs = args.getNonOptionArgs();
+        if (nonOptionArgs != null) {
+            for (String arg : nonOptionArgs) {
+                if ("exit".equalsIgnoreCase(arg) || "seed-only".equalsIgnoreCase(arg) || "exit-after-seed".equalsIgnoreCase(arg)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private String getOptionValue(ApplicationArguments args, String optionName) {
+        if (args != null && args.containsOption(optionName)) {
+            List<String> values = args.getOptionValues(optionName);
+            if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).isBlank()) {
+                return values.get(0).trim();
+            }
+        }
+        return null;
     }
 
     private void seedDefaultPermissions() {
         List<PermissionDefinition> defaultDefs = List.of(
-                // Requests
-                new PermissionDefinition("Create API Request", "request:create", "request", "create", "Allows creating API requests"),
-                new PermissionDefinition("Read API Request", "request:read", "request", "read", "Allows reading API requests"),
-                new PermissionDefinition("Update API Request", "request:update", "request", "update", "Allows updating API requests"),
-                new PermissionDefinition("Delete API Request", "request:delete", "request", "delete", "Allows deleting API requests"),
-                new PermissionDefinition("Execute API Request", "request:execute", "request", "execute", "Allows executing API requests"),
+                // 1. Organisation
+                new PermissionDefinition("Create Organization", "organization:create", "organization", "create",
+                        "Allows creating organizations"),
+                new PermissionDefinition("Read Organization", "organization:read", "organization", "read",
+                        "Allows viewing organization details"),
+                new PermissionDefinition("Update Organization", "organization:update", "organization", "update",
+                        "Allows modifying organization settings"),
+                new PermissionDefinition("Delete Organization", "organization:delete", "organization", "delete",
+                        "Allows deleting organizations"),
 
-                // Collections
-                new PermissionDefinition("Create Collection", "collection:create", "collection", "create", "Allows creating collections"),
-                new PermissionDefinition("Read Collection", "collection:read", "collection", "read", "Allows reading collections"),
-                new PermissionDefinition("Update Collection", "collection:update", "collection", "update", "Allows updating collections"),
-                new PermissionDefinition("Delete Collection", "collection:delete", "collection", "delete", "Allows deleting collections"),
+                // 2. Collection
+                new PermissionDefinition("Create Collection", "collection:create", "collection", "create",
+                        "Allows creating collections and folders"),
+                new PermissionDefinition("Read Collection", "collection:read", "collection", "read",
+                        "Allows viewing collections and folders"),
+                new PermissionDefinition("Update Collection", "collection:update", "collection", "update",
+                        "Allows modifying collections and folders"),
+                new PermissionDefinition("Delete Collection", "collection:delete", "collection", "delete",
+                        "Allows deleting collections and folders"),
 
-                // Environments
-                new PermissionDefinition("Create Environment", "environment:create", "environment", "create", "Allows creating environments"),
-                new PermissionDefinition("Read Environment", "environment:read", "environment", "read", "Allows reading environments"),
-                new PermissionDefinition("Update Environment", "environment:update", "environment", "update", "Allows updating environments"),
-                new PermissionDefinition("Delete Environment", "environment:delete", "environment", "delete", "Allows deleting environments"),
+                // 3. Environment
+                new PermissionDefinition("Create Environment", "environment:create", "environment", "create",
+                        "Allows creating environments and variables"),
+                new PermissionDefinition("Read Environment", "environment:read", "environment", "read",
+                        "Allows viewing environments and variables"),
+                new PermissionDefinition("Update Environment", "environment:update", "environment", "update",
+                        "Allows modifying environments and variables"),
+                new PermissionDefinition("Delete Environment", "environment:delete", "environment", "delete",
+                        "Allows deleting environments and variables"),
 
-                // Workflows
-                new PermissionDefinition("Create Workflow", "workflow:create", "workflow", "create", "Allows creating workflows"),
-                new PermissionDefinition("Read Workflow", "workflow:read", "workflow", "read", "Allows reading workflows"),
-                new PermissionDefinition("Update Workflow", "workflow:update", "workflow", "update", "Allows updating workflows"),
-                new PermissionDefinition("Delete Workflow", "workflow:delete", "workflow", "delete", "Allows deleting workflows"),
-                new PermissionDefinition("Execute Workflow", "workflow:execute", "workflow", "execute", "Allows executing workflows"),
+                // 4. API
+                new PermissionDefinition("Create API", "api:create", "api", "create",
+                        "Allows creating APIs and requests"),
+                new PermissionDefinition("Read API", "api:read", "api", "read", "Allows viewing APIs and requests"),
+                new PermissionDefinition("Update API", "api:update", "api", "update",
+                        "Allows modifying APIs and requests"),
+                new PermissionDefinition("Delete API", "api:delete", "api", "delete",
+                        "Allows deleting APIs and requests"),
 
-                // Testing
-                new PermissionDefinition("Create Test", "test:create", "test", "create", "Allows creating tests"),
-                new PermissionDefinition("Read Test", "test:read", "test", "read", "Allows reading tests"),
-                new PermissionDefinition("Update Test", "test:update", "test", "update", "Allows updating tests"),
-                new PermissionDefinition("Delete Test", "test:delete", "test", "delete", "Allows deleting tests"),
-                new PermissionDefinition("Execute Test", "test:execute", "test", "execute", "Allows executing tests"),
+                // 5. Workflows
+                new PermissionDefinition("Create Workflow", "workflow:create", "workflow", "create",
+                        "Allows creating automated workflows"),
+                new PermissionDefinition("Read Workflow", "workflow:read", "workflow", "read",
+                        "Allows viewing workflows and executions"),
+                new PermissionDefinition("Update Workflow", "workflow:update", "workflow", "update",
+                        "Allows modifying workflow definitions and steps"),
+                new PermissionDefinition("Delete Workflow", "workflow:delete", "workflow", "delete",
+                        "Allows deleting workflows"),
 
-                // User, Role & Permission Management
-                new PermissionDefinition("Manage Users", "user:manage", "user", "manage", "Allows managing users"),
-                new PermissionDefinition("Manage Roles", "role:manage", "role", "manage", "Allows managing roles"),
-                new PermissionDefinition("Manage Permissions", "permission:manage", "permission", "manage", "Allows managing permissions"),
+                // 6. Users
+                new PermissionDefinition("Create User", "user:create", "user", "create",
+                        "Allows creating and inviting users"),
+                new PermissionDefinition("Read User", "user:read", "user", "read", "Allows viewing users and roles"),
+                new PermissionDefinition("Update User", "user:update", "user", "update",
+                        "Allows updating user details and status"),
+                new PermissionDefinition("Delete User", "user:delete", "user", "delete",
+                        "Allows deleting user accounts"),
 
-                // Organization & Workspace
-                new PermissionDefinition("Manage Organization", "organization:manage", "organization", "manage", "Allows managing organization"),
-                new PermissionDefinition("Manage Workspace", "workspace:manage", "workspace", "manage", "Allows managing workspaces")
-        );
+                // 7. Roles (A Super Admin role cannot be deleted)
+                new PermissionDefinition("Create Role", "role:create", "role", "create",
+                        "Allows creating custom RBAC roles"),
+                new PermissionDefinition("Read Role", "role:read", "role", "read",
+                        "Allows viewing roles and assigned permissions"),
+                new PermissionDefinition("Update Role", "role:update", "role", "update",
+                        "Allows updating role definitions and permissions"),
+                new PermissionDefinition("Delete Role", "role:delete", "role", "delete",
+                        "Allows deleting custom roles (Super Admin role cannot be deleted)"),
 
+                // 8. Workspace Members
+                new PermissionDefinition("Create Workspace Member", "workspace_member:create", "workspace_member",
+                        "create", "Allows adding members to workspace"),
+                new PermissionDefinition("Read Workspace Member", "workspace_member:read", "workspace_member", "read",
+                        "Allows viewing workspace members and invitations"),
+                new PermissionDefinition("Update Workspace Member", "workspace_member:update", "workspace_member",
+                        "update", "Allows modifying workspace member roles and status"),
+                new PermissionDefinition("Delete Workspace Member", "workspace_member:delete", "workspace_member",
+                        "delete", "Allows removing members from workspace"),
+
+                // 9. Test Cases
+                new PermissionDefinition("Create Test Case", "test_case:create", "test_case", "create",
+                        "Allows creating test cases and assertions"),
+                new PermissionDefinition("Read Test Case", "test_case:read", "test_case", "read",
+                        "Allows viewing test cases and execution results"),
+                new PermissionDefinition("Update Test Case", "test_case:update", "test_case", "update",
+                        "Allows modifying test cases and assertions"),
+                new PermissionDefinition("Delete Test Case", "test_case:delete", "test_case", "delete",
+                        "Allows deleting test cases and assertions"));
+
+        // Seed or update the 36 canonical permissions
         for (PermissionDefinition def : defaultDefs) {
-            if (!permissionRepository.existsByCode(def.code())) {
-                Permission permission = new Permission();
-                permission.setName(def.name());
-                permission.setCode(def.code());
-                permission.setResource(def.resource());
-                permission.setAction(def.action());
-                permission.setDescription(def.description());
-                permissionRepository.save(permission);
-            }
+            Permission permission = permissionRepository.findByCode(def.code())
+                    .orElseGet(Permission::new);
+            permission.setName(def.name());
+            permission.setCode(def.code());
+            permission.setResource(def.resource());
+            permission.setAction(def.action());
+            permission.setDescription(def.description());
+            permissionRepository.save(permission);
         }
     }
 
@@ -293,6 +376,6 @@ public class AdminDataInitializer implements ApplicationRunner {
             String code,
             String resource,
             String action,
-            String description
-    ) {}
+            String description) {
+    }
 }

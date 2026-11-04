@@ -22,6 +22,7 @@ import com.apiaura.apiaura.identity.user.dto.request.AdminResetPasswordRequest;
 public class UserController {
 
     private final UserService userService;
+    private final com.apiaura.apiaura.identity.role.service.RbacService rbacService;
 
     @GetMapping("/me")
     public ApiResponse<UserResponse> getMe() {
@@ -110,5 +111,30 @@ public class UserController {
         return ApiResponse.success(
                 "User deleted"
         );
+    }
+
+    @GetMapping("/{userId}/roles")
+    public ApiResponse<List<com.apiaura.apiaura.identity.role.dto.response.RoleResponse>> getUserRoles(
+            @PathVariable UUID userId
+    ) {
+        return ApiResponse.success(rbacService.getUserRoles(userId));
+    }
+
+    @PutMapping("/{userId}/roles/{roleId}")
+    public ApiResponse<Void> assignRole(
+            @PathVariable UUID userId,
+            @PathVariable UUID roleId
+    ) {
+        rbacService.assignRole(userId, roleId);
+        return ApiResponse.success("Role assigned to user");
+    }
+
+    @DeleteMapping("/{userId}/roles/{roleId}")
+    public ApiResponse<Void> removeRole(
+            @PathVariable UUID userId,
+            @PathVariable UUID roleId
+    ) {
+        rbacService.removeRole(userId, roleId);
+        return ApiResponse.success("Role removed from user");
     }
 }

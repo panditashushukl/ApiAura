@@ -1,0 +1,337 @@
+@if (isOpen()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+    (click)="close()"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-modal-title"
+  >
+    <div
+      class="relative w-full max-w-md bg-surface-elevated border border-app rounded-2xl shadow-2xl p-6 sm:p-8 text-text-main max-h-[92vh] overflow-y-auto"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header: Brand Name (Left) and Mode (Right) in smaller font -->
+      <div class="flex items-center justify-between pb-3.5 mb-5 border-b border-app">
+        <!-- Brand Name (Left, smaller size) -->
+        <app-logo size="sm" [showText]="true" textSize="sm"></app-logo>
+
+        <!-- Mode Title (Right, smaller font) & Close Button -->
+        <div class="flex items-center gap-3">
+          <h2 id="auth-modal-title" class="text-sm font-semibold text-text-secondary m-0">
+            {{ mode() === 'login' ? 'Login' : 'Create Account' }}
+          </h2>
+          <button
+            type="button"
+            (click)="close()"
+            aria-label="Close modal"
+            class="p-1 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-hover transition-colors cursor-pointer flex items-center justify-center"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Error Message Banner -->
+      @if (errorMessage()) {
+        <div
+          class="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-2"
+        >
+          <svg
+            class="w-4 h-4 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <!-- Common Form -->
+      <form (ngSubmit)="onSubmit()" class="space-y-4">
+        @if (mode() === 'register') {
+          <!-- Name Field (Register only) -->
+          <div class="space-y-1.5">
+            <label
+              for="auth-name"
+              class="block text-xs font-bold uppercase tracking-wider text-text-secondary"
+            >
+              Name <span class="text-bhagwa-600 dark:text-bhagwa-400">*</span>
+            </label>
+            <input
+              id="auth-name"
+              type="text"
+              name="name"
+              [ngModel]="name()"
+              (ngModelChange)="name.set($event)"
+              required
+              placeholder="John Doe"
+              class="w-full px-4 py-2.5 text-sm bg-subtle border border-app rounded-xl text-text-main placeholder:text-text-muted focus:outline-none focus:border-bhagwa-600 dark:focus:border-bhagwa-500 focus:ring-2 focus:ring-bhagwa-500/25 transition-all"
+            />
+          </div>
+        }
+
+        <!-- Email Field (Both Login & Register) -->
+        <div class="space-y-1.5">
+          <label
+            for="auth-email"
+            class="block text-xs font-bold uppercase tracking-wider text-text-secondary"
+          >
+            Email <span class="text-bhagwa-600 dark:text-bhagwa-400">*</span>
+          </label>
+          <input
+            id="auth-email"
+            type="email"
+            name="email"
+            [ngModel]="email()"
+            (ngModelChange)="email.set($event)"
+            required
+            placeholder="you@example.com"
+            class="w-full px-4 py-2.5 text-sm bg-subtle border border-app rounded-xl text-text-main placeholder:text-text-muted focus:outline-none focus:border-bhagwa-600 dark:focus:border-bhagwa-500 focus:ring-2 focus:ring-bhagwa-500/25 transition-all"
+          />
+        </div>
+
+        @if (mode() === 'register') {
+          <!-- Phone Number Field (Register only) -->
+          <div class="space-y-1.5">
+            <label
+              for="auth-phone"
+              class="block text-xs font-bold uppercase tracking-wider text-text-secondary"
+            >
+              Phone Number
+            </label>
+            <input
+              id="auth-phone"
+              type="tel"
+              name="phone"
+              [ngModel]="phoneNumber()"
+              (ngModelChange)="phoneNumber.set($event)"
+              placeholder="+1 (555) 000-0000"
+              class="w-full px-4 py-2.5 text-sm bg-subtle border border-app rounded-xl text-text-main placeholder:text-text-muted focus:outline-none focus:border-bhagwa-600 dark:focus:border-bhagwa-500 focus:ring-2 focus:ring-bhagwa-500/25 transition-all"
+            />
+          </div>
+        }
+
+        <!-- Password Field (Both Login & Register) with Eye Toggle Button -->
+        <div class="space-y-1.5">
+          <label
+            for="auth-password"
+            class="block text-xs font-bold uppercase tracking-wider text-text-secondary"
+          >
+            Password <span class="text-bhagwa-600 dark:text-bhagwa-400">*</span>
+          </label>
+          <div class="relative">
+            <input
+              id="auth-password"
+              [type]="showPassword() ? 'text' : 'password'"
+              name="password"
+              [ngModel]="password()"
+              (ngModelChange)="password.set($event)"
+              required
+              placeholder="Enter password"
+              class="w-full pl-4 pr-11 py-2.5 text-sm bg-subtle border border-app rounded-xl text-text-main placeholder:text-text-muted focus:outline-none focus:border-bhagwa-600 dark:focus:border-bhagwa-500 focus:ring-2 focus:ring-bhagwa-500/25 transition-all"
+            />
+            <button
+              type="button"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'View password'"
+              title="Toggle password visibility"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+            >
+              @if (showPassword()) {
+                <!-- Eye Slash (Password visible -> click to hide) -->
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"
+                  />
+                </svg>
+              } @else {
+                <!-- Eye Open (Password hidden -> click to view) -->
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+              }
+            </button>
+          </div>
+        </div>
+
+        @if (mode() === 'register') {
+          <!-- Confirm Password Field (Register only) with Eye Toggle Button -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label
+                for="auth-confirm-password"
+                class="block text-xs font-bold uppercase tracking-wider text-text-secondary"
+              >
+                Confirm Password <span class="text-bhagwa-600 dark:text-bhagwa-400">*</span>
+              </label>
+              @if (passwordsMismatch()) {
+                <span
+                  class="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1"
+                >
+                  ✕ Passwords do not match
+                </span>
+              }
+            </div>
+            <div class="relative">
+              <input
+                id="auth-confirm-password"
+                [type]="showConfirmPassword() ? 'text' : 'password'"
+                name="confirmPassword"
+                [ngModel]="confirmPassword()"
+                (ngModelChange)="confirmPassword.set($event)"
+                required
+                placeholder="Confirm password"
+                class="w-full pl-4 pr-11 py-2.5 text-sm bg-subtle border rounded-xl text-text-main placeholder:text-text-muted transition-all outline-none"
+                [class.border-app]="!passwordsMismatch()"
+                [class.focus:border-bhagwa-600]="!passwordsMismatch()"
+                [class.dark:focus:border-bhagwa-500]="!passwordsMismatch()"
+                [class.focus:ring-2]="true"
+                [class.focus:ring-bhagwa-500/25]="!passwordsMismatch()"
+                [class.border-rose-500]="passwordsMismatch()"
+                [class.focus:border-rose-500]="passwordsMismatch()"
+                [class.focus:ring-rose-500/20]="passwordsMismatch()"
+              />
+              <button
+                type="button"
+                (click)="toggleConfirmPasswordVisibility()"
+                [attr.aria-label]="
+                  showConfirmPassword() ? 'Hide confirm password' : 'View confirm password'
+                "
+                title="Toggle confirm password visibility"
+                class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+              >
+                @if (showConfirmPassword()) {
+                  <!-- Eye Slash -->
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"
+                    />
+                  </svg>
+                } @else {
+                  <!-- Eye Open -->
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                }
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- Submit Button -->
+        <div class="pt-2">
+          <button
+            type="submit"
+            [disabled]="isLoading() || (mode() === 'register' && passwordsMismatch())"
+            class="btn-bhagwa w-full py-2.5 rounded-xl text-white font-semibold shadow-sm shadow-bhagwa-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+          >
+            @if (isLoading()) {
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ mode() === 'login' ? 'Signing in...' : 'Creating account...' }}</span>
+            } @else {
+              <span>{{ mode() === 'login' ? 'Sign In' : 'Create Account' }}</span>
+            }
+          </button>
+        </div>
+      </form>
+
+      <!-- Footer switch link -->
+      <div class="mt-6 text-center text-xs text-text-secondary">
+        @if (mode() === 'login') {
+          Don't have an account?
+          <button
+            type="button"
+            (click)="switchMode('register')"
+            class="text-bhagwa-700 dark:text-bhagwa-400 font-semibold hover:underline ml-1 cursor-pointer bg-transparent border-none p-0"
+          >
+            Sign up
+          </button>
+        } @else {
+          Already have an account?
+          <button
+            type="button"
+            (click)="switchMode('login')"
+            class="text-bhagwa-700 dark:text-bhagwa-400 font-semibold hover:underline ml-1 cursor-pointer bg-transparent border-none p-0"
+          >
+            Sign in
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

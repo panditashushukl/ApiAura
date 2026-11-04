@@ -21,6 +21,7 @@ public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository roleRepository;
     private final com.apiaura.apiaura.identity.user.repository.UserRepository userRepository;
+    private final com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
 
     @Override
     @Transactional
@@ -39,14 +40,18 @@ public class RoleServiceImpl implements RoleService {
         role.setDescription(request.getDescription());
         role.setSystemRole(request.isSystemRole());
 
-        try {
-            UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
-            userRepository.findById(currentUserId).ifPresent(user -> {
-                if (user.getOrganization() != null) {
-                    role.setOrganization(user.getOrganization());
-                }
-            });
-        } catch (Exception ignored) {}
+        if (request.getOrganizationId() != null) {
+            organizationRepository.findById(request.getOrganizationId()).ifPresent(role::setOrganization);
+        } else {
+            try {
+                UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
+                userRepository.findById(currentUserId).ifPresent(user -> {
+                    if (user.getOrganization() != null) {
+                        role.setOrganization(user.getOrganization());
+                    }
+                });
+            } catch (Exception ignored) {}
+        }
 
         return RoleResponse.from(
                 roleRepository.save(role)
@@ -123,9 +128,9 @@ public class RoleServiceImpl implements RoleService {
 
         Role role = findRole(roleId);
 
-        if (role.isSystemRole()) {
+        if (role.isSystemRole() || "SUPER_ADMIN".equalsIgnoreCase(role.getCode())) {
             throw new BadRequestException(
-                    "System roles cannot be deleted"
+                    "A Super Admin role cannot be deleted"
             );
         }
 

@@ -19,22 +19,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-
-import com.apiaura.apiaura.org.workspace.repository.WorkspaceRepository;
-import com.apiaura.apiaura.org.workspace.repository.WorkspaceMemberRepository;
-import com.apiaura.apiaura.api.collection.repository.CollectionRepository;
-import com.apiaura.apiaura.api.request.repository.ApiRequestRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AdminDataInitializerTest {
@@ -57,21 +54,6 @@ class AdminDataInitializerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    @Mock
-    private WorkspaceRepository workspaceRepository;
-
-    @Mock
-    private WorkspaceMemberRepository workspaceMemberRepository;
-
-    @Mock
-    private CollectionRepository collectionRepository;
-
-    @Mock
-    private ApiRequestRepository apiRequestRepository;
-
-    @Mock
-    private ApplicationArguments applicationArguments;
-
     @InjectMocks
     private AdminDataInitializer adminDataInitializer;
 
@@ -85,34 +67,25 @@ class AdminDataInitializerTest {
     }
 
     @Test
-    void testRunCreatesAdminRolePermissionsAndUser() {
-        lenient().when(roleRepository.findByCode(anyString())).thenReturn(Optional.empty());
-        Role mockRole = new Role();
-        mockRole.setId(UUID.randomUUID());
-        mockRole.setCode("ADMIN");
-        mockRole.setName("Administrator");
-        mockRole.setSystemRole(true);
-        lenient().when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
+    void testRunWithoutSeedFlagSkipsSeeding() {
+        ApplicationArguments args = new DefaultApplicationArguments();
 
-        Permission p1 = new Permission();
-        p1.setId(UUID.randomUUID());
-        p1.setCode("request:create");
-        when(permissionRepository.findAll()).thenReturn(List.of(p1));
+        adminDataInitializer.run(args);
 
-        when(userRepository.findByEmail("admin@apiaura.com")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("admin123")).thenReturn("encodedPassword123");
+        verifyNoInteractions(roleRepository);
+        verifyNoInteractions(permissionRepository);
+        verifyNoInteractions(userRepository);
+        verifyNoInteractions(userRoleRepository);
+        verifyNoInteractions(rolePermissionRepository);
+    }
 
-        User mockUser = new User();
-        mockUser.setId(UUID.randomUUID());
-        mockUser.setEmail("admin@apiaura.com");
-        mockUser.setStatus(UserStatus.ACTIVE);
-        when(userRepository.save(any(User.class))).thenReturn(mockUser);
+    @Test
+    void testRunWithSeedOptionExecutesSeeding() {
+        ApplicationArguments args = new DefaultApplicationArguments("--seed");
 
-        lenient().when(rolePermissionRepository.existsByRoleIdAndPermissionId(any(), any())).thenReturn(false);
-        lenient().when(userRoleRepository.existsByUserIdAndRoleId(any(), any())).thenReturn(false);
-        lenient().when(workspaceRepository.findByCreatedById(any())).thenReturn(List.of());
+        mockSuccessfulSeedingRepositories();
 
-        adminDataInitializer.run(applicationArguments);
+        adminDataInitializer.run(args);
 
         verify(roleRepository, atLeastOnce()).save(any(Role.class));
         verify(rolePermissionRepository, atLeastOnce()).save(any(RolePermission.class));
@@ -125,5 +98,82 @@ class AdminDataInitializerTest {
         assertEquals(UserStatus.ACTIVE, savedUser.getStatus());
 
         verify(userRoleRepository).save(any(UserRole.class));
+    }
+
+    @Test
+    void testRunWithPositionalSeedArgExecutesSeeding() {
+        ApplicationArguments args = new DefaultApplicationArguments("seed");
+
+        mockSuccessfulSeedingRepositories();
+
+        adminDataInitializer.run(args);
+
+        verify(roleRepository, atLeastOnce()).save(any(Role.class));
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void testRunWithSeedAndExitFlagExecutesSeedingAndTerminates() {
+        ApplicationArguments args = new DefaultApplicationArguments("--seed", "--exit");
+
+        mockSuccessfulSeedingRepositories();
+
+        AtomicInteger exitCodeCaptured = new AtomicInteger(-1);
+        adminDataInitializer.setExitHandler(exitCodeCaptured::set);
+
+        adminDataInitializer.run(args);
+
+        verify(userRepository).save(any(User.class));
+        assertEquals(0, exitCodeCaptured.get());
+    }
+
+    @Test
+    void testRunWithCustomAdminCredentialsViaCli() {
+        ApplicationArguments args = new DefaultApplicationArguments(
+                "--seed",
+                "--admin-email=custom@apiaura.com",
+                "--admin-password=CustomPass456!",
+                "--admin-name=Custom Owner"
+        );
+
+        mockSuccessfulSeedingRepositories();
+        when(userRepository.findByEmail("custom@apiaura.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("CustomPass456!")).thenReturn("encodedCustomPassword");
+
+        adminDataInitializer.run(args);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        User savedUser = userCaptor.getValue();
+        assertEquals("custom@apiaura.com", savedUser.getEmail());
+        assertEquals("Custom Owner", savedUser.getName());
+        assertEquals("encodedCustomPassword", savedUser.getPasswordHash());
+    }
+
+    private void mockSuccessfulSeedingRepositories() {
+        lenient().when(roleRepository.findByCode(anyString())).thenReturn(Optional.empty());
+        Role mockRole = new Role();
+        mockRole.setId(UUID.randomUUID());
+        mockRole.setCode("ADMIN");
+        mockRole.setName("Administrator");
+        mockRole.setSystemRole(true);
+        lenient().when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
+
+        Permission p1 = new Permission();
+        p1.setId(UUID.randomUUID());
+        p1.setCode("api:create");
+        lenient().when(permissionRepository.findAll()).thenReturn(List.of(p1));
+
+        lenient().when(userRepository.findByEmail("admin@apiaura.com")).thenReturn(Optional.empty());
+        lenient().when(passwordEncoder.encode("admin123")).thenReturn("encodedPassword123");
+
+        User mockUser = new User();
+        mockUser.setId(UUID.randomUUID());
+        mockUser.setEmail("admin@apiaura.com");
+        mockUser.setStatus(UserStatus.ACTIVE);
+        lenient().when(userRepository.save(any(User.class))).thenReturn(mockUser);
+
+        lenient().when(rolePermissionRepository.existsByRoleIdAndPermissionId(any(), any())).thenReturn(false);
+        lenient().when(userRoleRepository.existsByUserIdAndRoleId(any(), any())).thenReturn(false);
     }
 }

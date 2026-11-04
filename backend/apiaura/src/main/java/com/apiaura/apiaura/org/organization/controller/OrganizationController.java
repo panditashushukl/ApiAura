@@ -19,15 +19,37 @@ import java.util.UUID;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final com.apiaura.apiaura.identity.user.repository.UserRepository userRepository;
 
     @GetMapping
-    public ApiResponse<List<OrganizationResponse>> getMine() {
+    public ApiResponse<List<OrganizationResponse>> getAllOrMine(
+            @RequestParam(required = false, defaultValue = "false") boolean all
+    ) {
+        UUID currentUserId = null;
+        try {
+            currentUserId = SecurityUtils.getCurrentUserId();
+        } catch (Exception ignored) {}
 
-        return ApiResponse.success(
-                organizationService.getByOwner(
-                        SecurityUtils.getCurrentUserId()
-                )
-        );
+        boolean isSuperAdmin = false;
+        if (currentUserId != null) {
+            try {
+                isSuperAdmin = userRepository.findById(currentUserId)
+                        .map(u -> u.getRoles().stream()
+                                .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode())))
+                        .orElse(false);
+            } catch (Exception ignored) {}
+        }
+
+        if (all || isSuperAdmin || currentUserId == null) {
+            return ApiResponse.success(organizationService.getAll());
+        }
+
+        return ApiResponse.success(organizationService.getByOwner(currentUserId));
+    }
+
+    @GetMapping("/all")
+    public ApiResponse<List<OrganizationResponse>> getAll() {
+        return ApiResponse.success(organizationService.getAll());
     }
 
     @GetMapping("/{organizationId}")

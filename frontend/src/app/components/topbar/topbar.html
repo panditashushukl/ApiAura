@@ -1,0 +1,122 @@
+<header
+  class="h-16 w-full border-b border-app bg-surface px-6 flex items-center justify-between z-20"
+>
+  <!-- Brand Identity -->
+  <app-logo size="md" [showText]="true" textSize="lg"></app-logo>
+
+  <!-- Right Actions: Dark/Light Mode Toggle, and either Login+Signup OR User Circle Avatar -->
+  <div class="flex items-center gap-3">
+    <!-- Dark / Light Toggle Button -->
+    <button
+      type="button"
+      (click)="toggleTheme()"
+      [attr.aria-label]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
+      title="Toggle theme"
+      class="p-2.5 rounded-xl border border-app bg-surface text-text-secondary hover:text-text-main hover:bg-surface-hover hover:border-bhagwa-500/40 transition-all cursor-pointer flex items-center justify-center"
+    >
+      @if (isDark()) {
+        <!-- Sun icon -->
+        <svg
+          class="w-5 h-5 text-amber-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+          />
+        </svg>
+      } @else {
+        <!-- Moon icon -->
+        <svg
+          class="w-5 h-5 text-slate-700"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+          />
+        </svg>
+      }
+    </button>
+
+    @if (currentUser()) {
+      <!-- Round circle displaying first name in place of Login & Signup -->
+      <div class="relative">
+        <button
+          type="button"
+          (click)="toggleUserMenu()"
+          title="{{ currentUser()?.name }} (Click for menu)"
+          aria-label="User account menu"
+          class="h-10 min-w-10 px-3 rounded-full bg-gradient-to-br from-bhagwa-500 to-bhagwa-700 hover:from-bhagwa-600 hover:to-bhagwa-800 text-white text-xs font-bold flex items-center justify-center shadow-sm shadow-bhagwa-600/30 ring-2 ring-bhagwa-500/30 hover:ring-bhagwa-500/50 transition-all cursor-pointer select-none"
+        >
+          <span class="truncate max-w-[100px]">{{ firstName() }}</span>
+        </button>
+
+        <!-- Profile Dropdown Menu -->
+        @if (userMenuOpen()) {
+          <div
+            class="absolute right-0 mt-2 w-56 bg-surface-elevated border border-app rounded-2xl shadow-2xl py-2 z-50 text-text-main"
+          >
+            <div class="px-4 py-2 border-b border-app">
+              <p class="text-xs font-bold text-text-main truncate">{{ currentUser()?.name }}</p>
+              <p class="text-[11px] text-text-muted truncate">{{ currentUser()?.email }}</p>
+              @if (currentUser()?.organizationName) {
+                <p
+                  class="text-[10px] text-bhagwa-600 dark:text-bhagwa-400 mt-0.5 truncate font-medium"
+                >
+                  {{ currentUser()?.organizationName }}
+                </p>
+              }
+            </div>
+            <button
+              type="button"
+              (click)="logout()"
+              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-surface-hover flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span>Sign out</span>
+            </button>
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- Login Button -->
+      <button
+        type="button"
+        (click)="openLogin()"
+        class="px-4 py-2 text-sm font-medium rounded-xl border border-app bg-surface text-text-secondary hover:text-text-main hover:bg-surface-hover hover:border-bhagwa-500/40 transition-all cursor-pointer"
+      >
+        Login
+      </button>
+
+      <!-- Signup Button -->
+      <button
+        type="button"
+        (click)="openRegister()"
+        class="btn-bhagwa px-4 py-2 text-sm font-semibold rounded-xl shadow-sm shadow-bhagwa-600/25 transition-all cursor-pointer"
+      >
+        Signup
+      </button>
+    }
+  </div>
+</header>

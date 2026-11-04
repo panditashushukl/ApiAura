@@ -21,4 +21,6 @@ public class CreateRoleRequest {
     private String description;
 
     private boolean systemRole;
+
+    private java.util.UUID organizationId;
 }

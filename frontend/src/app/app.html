@@ -1,0 +1,18 @@
+<div class="h-screen w-screen flex flex-col bg-app text-main overflow-hidden">
+  <!-- Topbar with brand, theme toggle, login, and signup -->
+  <app-topbar></app-topbar>
+
+  <!-- Body layout containing Sidebar and Main Content Area -->
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Sidebar with nothing (skeleton) -->
+    <app-sidebar></app-sidebar>
+
+    <!-- Main Content Area Skeleton -->
+    <main class="flex-1 bg-app overflow-y-auto">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+  <!-- Common Auth Modal Overlay (Login / Register) -->
+  <app-auth-modal></app-auth-modal>
+</div>
