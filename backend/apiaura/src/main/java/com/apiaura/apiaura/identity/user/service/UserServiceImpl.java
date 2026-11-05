@@ -106,18 +106,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<UserResponse> getAll() {
         try {
-            UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
-            User currentUser = findUser(currentUserId);
-
-            boolean isSuperAdmin = currentUser.getRoles().stream()
-                    .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
-
-            if (isSuperAdmin) {
+            if (SecurityUtils.isSuperAdmin()) {
                 return userRepository.findAll()
                         .stream()
                         .map(UserResponse::from)
                         .toList();
             }
+
+            UUID currentUserId = SecurityUtils.getCurrentUserId();
+            User currentUser = findUser(currentUserId);
 
             if (currentUser.getOrganization() != null) {
                 return userRepository.findByOrganizationId(currentUser.getOrganization().getId())
@@ -131,6 +128,39 @@ public class UserServiceImpl implements UserService {
 
         return userRepository.findAll()
                 .stream()
+                .map(UserResponse::from)
+                .toList();
+    }
+
+    @Override
+    public List<UserResponse> getByOrganizationId(UUID organizationId) {
+        var org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization not found: " + organizationId));
+
+        if (!SecurityUtils.isSuperAdmin()) {
+            UUID currentUserId = SecurityUtils.getCurrentUserId();
+            User currentUser = findUser(currentUserId);
+
+            boolean isOwner = org.getOwner() != null && org.getOwner().getId().equals(currentUserId);
+            boolean belongsToOrg = currentUser.getOrganization() != null &&
+                    currentUser.getOrganization().getId().equals(organizationId);
+
+            if (!isOwner && !belongsToOrg) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "You do not have permission to view members of this organization"
+                );
+            }
+        }
+
+        List<User> users = userRepository.findByOrganizationId(organizationId);
+
+        // Ensure owner is included in the list even if their active organization pointer was switched
+        if (org.getOwner() != null && users.stream().noneMatch(u -> u.getId().equals(org.getOwner().getId()))) {
+            users = new java.util.ArrayList<>(users);
+            users.add(0, org.getOwner());
+        }
+
+        return users.stream()
                 .map(UserResponse::from)
                 .toList();
     }
@@ -168,15 +198,14 @@ public class UserServiceImpl implements UserService {
             user.setOrganization(null);
         } else if (request.getOrganizationId() != null) {
             try {
-                UUID currentUserId = com.apiaura.apiaura.foundation.common.security.SecurityUtils.getCurrentUserId();
-                User currentUser = findUser(currentUserId);
-                boolean isSuperAdmin = currentUser.getRoles().stream()
-                        .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
-
                 com.apiaura.apiaura.org.organization.entity.Organization targetOrg = organizationRepository.findById(request.getOrganizationId())
                         .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
+                boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+
                 if (!isSuperAdmin) {
+                    UUID currentUserId = SecurityUtils.getCurrentUserId();
+                    User currentUser = findUser(currentUserId);
                     if (currentUser.getOrganization() == null || !currentUser.getOrganization().getId().equals(targetOrg.getId())) {
                         throw new BadRequestException("Org admins can only assign users to their own organization");
                     }
@@ -230,13 +259,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void resetPasswordByAdmin(UUID adminUserId, UUID targetUserId, String newPassword) {
-        User adminUser = findUser(adminUserId);
         User targetUser = findUser(targetUserId);
 
-        boolean isSuperAdmin = adminUser.getRoles().stream()
-                .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()));
-
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
         if (!isSuperAdmin) {
+            User adminUser = findUser(adminUserId);
             // Verify target user belongs to same organization as admin
             if (adminUser.getOrganization() == null || targetUser.getOrganization() == null ||
                     !adminUser.getOrganization().getId().equals(targetUser.getOrganization().getId())) {

@@ -8,6 +8,7 @@ import com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse;
 import com.apiaura.apiaura.org.organization.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
     private final com.apiaura.apiaura.identity.user.repository.UserRepository userRepository;
+    private final com.apiaura.apiaura.identity.user.service.UserService userService;
 
     @GetMapping
     public ApiResponse<List<OrganizationResponse>> getAllOrMine(
@@ -30,15 +32,7 @@ public class OrganizationController {
             currentUserId = SecurityUtils.getCurrentUserId();
         } catch (Exception ignored) {}
 
-        boolean isSuperAdmin = false;
-        if (currentUserId != null) {
-            try {
-                isSuperAdmin = userRepository.findById(currentUserId)
-                        .map(u -> u.getRoles().stream()
-                                .anyMatch(ur -> ur.getRole() != null && "SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode())))
-                        .orElse(false);
-            } catch (Exception ignored) {}
-        }
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
 
         if (all || isSuperAdmin || currentUserId == null) {
             return ApiResponse.success(organizationService.getAll());
@@ -58,11 +52,13 @@ public class OrganizationController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ApiResponse<List<OrganizationResponse>> getAll() {
         return ApiResponse.success(organizationService.getAll());
     }
 
     @GetMapping("/{organizationId}")
+    @PreAuthorize("hasAuthority('organization:read')")
     public ApiResponse<OrganizationResponse> getById(
             @PathVariable UUID organizationId
     ) {
@@ -71,7 +67,18 @@ public class OrganizationController {
         );
     }
 
+    @GetMapping("/{organizationId}/users")
+    @PreAuthorize("hasAuthority('user:read')")
+    public ApiResponse<List<com.apiaura.apiaura.identity.user.dto.response.UserResponse>> getUsersByOrganization(
+            @PathVariable UUID organizationId
+    ) {
+        return ApiResponse.success(
+                userService.getByOrganizationId(organizationId)
+        );
+    }
+
     @PostMapping
+    @PreAuthorize("hasAuthority('organization:create')")
     public ApiResponse<OrganizationResponse> create(
             @Valid @RequestBody CreateOrganizationRequest request
     ) {
@@ -86,6 +93,7 @@ public class OrganizationController {
     }
 
     @PatchMapping("/{organizationId}")
+    @PreAuthorize("hasAuthority('organization:update')")
     public ApiResponse<OrganizationResponse> update(
             @PathVariable UUID organizationId,
             @Valid @RequestBody UpdateOrganizationRequest request
@@ -101,6 +109,7 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{organizationId}")
+    @PreAuthorize("hasAuthority('organization:delete')")
     public ApiResponse<Void> delete(
             @PathVariable UUID organizationId
     ) {

@@ -24,6 +24,8 @@ public interface UserService {
 
     List<UserResponse> getAll();
 
+    List<UserResponse> getByOrganizationId(UUID organizationId);
+
     void changePassword(UUID userId, String currentPassword, String newPassword);
 
     void resetPasswordByAdmin(UUID adminUserId, UUID targetUserId, String newPassword);

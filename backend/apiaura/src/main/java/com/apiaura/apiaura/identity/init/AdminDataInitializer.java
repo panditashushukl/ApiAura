@@ -145,7 +145,7 @@ public class AdminDataInitializer implements ApplicationRunner {
                 rp.setAssignedAt(Instant.now());
                 rolePermissionRepository.save(rp);
             }
-            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(adminRole.getId(), permission.getId())) {
+            if (!"*".equals(permission.getCode()) && !rolePermissionRepository.existsByRoleIdAndPermissionId(adminRole.getId(), permission.getId())) {
                 RolePermission rp = new RolePermission();
                 rp.setRole(adminRole);
                 rp.setPermission(permission);
@@ -270,6 +270,10 @@ public class AdminDataInitializer implements ApplicationRunner {
 
     private void seedDefaultPermissions() {
         List<PermissionDefinition> defaultDefs = List.of(
+                // 0. Wildcard Platform Root Access
+                new PermissionDefinition("All Permissions", "*", "*", "*",
+                        "Wildcard root platform access"),
+
                 // 1. Organisation
                 new PermissionDefinition("Create Organization", "organization:create", "organization", "create",
                         "Allows creating organizations"),

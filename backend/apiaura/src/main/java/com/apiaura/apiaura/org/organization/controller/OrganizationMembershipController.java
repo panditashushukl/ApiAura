@@ -7,6 +7,7 @@ import com.apiaura.apiaura.org.organization.dto.response.MembershipRequestRespon
 import com.apiaura.apiaura.org.organization.service.OrganizationMembershipService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class OrganizationMembershipController {
     private final OrganizationMembershipService membershipService;
 
     @PostMapping("/{organizationId}/join-requests")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<MembershipRequestResponse> createJoinRequest(
             @PathVariable UUID organizationId,
             @RequestBody(required = false) @Valid CreateJoinRequest request
@@ -31,6 +33,7 @@ public class OrganizationMembershipController {
     }
 
     @GetMapping("/{organizationId}/join-requests")
+    @PreAuthorize("hasAuthority('organization:read')")
     public ApiResponse<List<MembershipRequestResponse>> getOrganizationRequests(
             @PathVariable UUID organizationId
     ) {
@@ -39,12 +42,14 @@ public class OrganizationMembershipController {
     }
 
     @GetMapping("/join-requests/my")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<List<MembershipRequestResponse>> getMyRequests() {
         List<MembershipRequestResponse> response = membershipService.getRequestsByUser(SecurityUtils.getCurrentUserId());
         return ApiResponse.success(response);
     }
 
     @PostMapping("/join-requests/{requestId}/approve")
+    @PreAuthorize("hasAuthority('organization:update')")
     public ApiResponse<MembershipRequestResponse> approveRequest(
             @PathVariable UUID requestId
     ) {
@@ -53,6 +58,7 @@ public class OrganizationMembershipController {
     }
 
     @PostMapping("/join-requests/{requestId}/reject")
+    @PreAuthorize("hasAuthority('organization:update')")
     public ApiResponse<MembershipRequestResponse> rejectRequest(
             @PathVariable UUID requestId
     ) {

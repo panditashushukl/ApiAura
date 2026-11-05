@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import com.apiaura.apiaura.identity.user.dto.request.ChangePasswordRequest;
 import com.apiaura.apiaura.identity.user.dto.request.AdminResetPasswordRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -26,6 +27,7 @@ public class UserController {
     private final com.apiaura.apiaura.identity.role.service.RbacService rbacService;
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<UserResponse> getMe() {
         return ApiResponse.success(
                 userService.getById(SecurityUtils.getCurrentUserId())
@@ -33,6 +35,7 @@ public class UserController {
     }
 
     @PatchMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<UserResponse> updateMe(
             @Valid @RequestBody UpdateUserRequest request
     ) {
@@ -43,6 +46,7 @@ public class UserController {
     }
 
     @PostMapping("/me/change-password")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<Void> changeMyPassword(
             @Valid @RequestBody ChangePasswordRequest request
     ) {
@@ -55,6 +59,7 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/reset-password")
+    @PreAuthorize("hasAuthority('user:update')")
     public ApiResponse<Void> resetPasswordByAdmin(
             @PathVariable UUID userId,
             @Valid @RequestBody AdminResetPasswordRequest request
@@ -68,11 +73,18 @@ public class UserController {
     }
 
     @GetMapping
-    public ApiResponse<List<UserResponse>> getAll() {
+    @PreAuthorize("hasAuthority('user:read')")
+    public ApiResponse<List<UserResponse>> getAll(
+            @RequestParam(required = false) UUID organizationId
+    ) {
+        if (organizationId != null) {
+            return ApiResponse.success(userService.getByOrganizationId(organizationId));
+        }
         return ApiResponse.success(userService.getAll());
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('user:create')")
     public ApiResponse<UserResponse> create(
             @Valid @RequestBody CreateUserRequest request
     ) {
@@ -83,6 +95,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
+    @PreAuthorize("hasAuthority('user:read') or #userId.toString() == authentication.name")
     public ApiResponse<UserResponse> getById(
             @PathVariable UUID userId
     ) {
@@ -92,6 +105,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}")
+    @PreAuthorize("hasAuthority('user:update') or #userId.toString() == authentication.name")
     public ApiResponse<UserResponse> update(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserRequest request
@@ -103,6 +117,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasAuthority('user:update')")
     public ApiResponse<UserResponse> updateStatus(
             @PathVariable UUID userId,
             @RequestParam UserStatus status
@@ -114,6 +129,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize("hasAuthority('user:delete')")
     public ApiResponse<Void> delete(
             @PathVariable UUID userId
     ) {
@@ -125,6 +141,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/roles")
+    @PreAuthorize("hasAuthority('role:read') or hasAuthority('user:read') or #userId.toString() == authentication.name")
     public ApiResponse<List<com.apiaura.apiaura.identity.role.dto.response.RoleResponse>> getUserRoles(
             @PathVariable UUID userId
     ) {
@@ -132,6 +149,7 @@ public class UserController {
     }
 
     @PutMapping("/{userId}/roles/{roleId}")
+    @PreAuthorize("hasAuthority('role:update')")
     public ApiResponse<Void> assignRole(
             @PathVariable UUID userId,
             @PathVariable UUID roleId
@@ -141,6 +159,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}/roles/{roleId}")
+    @PreAuthorize("hasAuthority('role:update')")
     public ApiResponse<Void> removeRole(
             @PathVariable UUID userId,
             @PathVariable UUID roleId

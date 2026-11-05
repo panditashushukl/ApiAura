@@ -1,6 +1,7 @@
 package com.apiaura.apiaura.foundation.common.security;
 
 import com.apiaura.apiaura.foundation.common.enums.UserStatus;
+import com.apiaura.apiaura.identity.permission.repository.PermissionRepository;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final PermissionRepository permissionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -54,6 +56,19 @@ public class CustomUserDetailsService implements UserDetailsService {
                             if (role.getCode() != null) {
                                 authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode().toUpperCase()));
                                 authorities.add(new SimpleGrantedAuthority(role.getCode().toUpperCase()));
+
+                                if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode())) {
+                                    authorities.add(new SimpleGrantedAuthority("*"));
+                                    try {
+                                        permissionRepository.findAll().forEach(perm -> {
+                                            if (perm.getCode() != null) {
+                                                authorities.add(new SimpleGrantedAuthority(perm.getCode()));
+                                            }
+                                        });
+                                    } catch (Exception ignored) {
+                                        // Ignore DB lookup failure in test/fallback mode
+                                    }
+                                }
                             }
                             if (role.getPermissions() != null) {
                                 role.getPermissions().forEach(rolePermission -> {

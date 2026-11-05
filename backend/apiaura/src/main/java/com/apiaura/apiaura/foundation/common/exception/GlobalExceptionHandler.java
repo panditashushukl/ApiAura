@@ -98,6 +98,27 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            org.springframework.security.access.AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Access denied for path={}: {}", request.getRequestURI(), exception.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .message("Access denied: you do not have permission to perform this action")
+                .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                .path(request.getRequestURI())
+                .timestamp(Instant.now())
+                .traceId(MDC.get("traceId"))
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(response);
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(

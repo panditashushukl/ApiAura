@@ -40,6 +40,11 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             response.getWriter().write("{\"success\":false,\"error\":\"Unauthorized\",\"message\":\"Authentication required or token expired\"}");
                         })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"success\":false,\"error\":\"Forbidden\",\"message\":\"Access denied: insufficient permissions\"}");
+                        })
                 )
 
                 .sessionManagement(session ->
