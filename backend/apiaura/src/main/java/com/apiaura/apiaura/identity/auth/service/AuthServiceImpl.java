@@ -60,7 +60,6 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
-    private final com.apiaura.apiaura.org.organization.repository.OrganizationMembershipRequestRepository membershipRequestRepository;
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final CollectionRepository collectionRepository;
@@ -103,20 +102,6 @@ public class AuthServiceImpl implements AuthService {
             userRoleRepository.save(ur);
             savedUser.getRoles().add(ur);
         });
-
-        // Create pending organization join request if selected during registration
-        if (request.getOrganizationId() != null) {
-            organizationRepository.findById(request.getOrganizationId()).ifPresent(org -> {
-                com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest req =
-                        new com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest();
-                req.setUser(savedUser);
-                req.setOrganization(org);
-                req.setStatus(com.apiaura.apiaura.foundation.common.enums.MembershipRequestStatus.PENDING);
-                req.setMessage("Requested joining organization during registration");
-                req.setRequestedAt(Instant.now());
-                membershipRequestRepository.save(req);
-            });
-        }
 
         // Create default workspace ("My Workspace"), collection ("My Collection"), and sample request
         createDefaultWorkspaceForUser(savedUser);
@@ -182,11 +167,65 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public List<com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse> getPublicOrganizations() {
-        return organizationRepository.findAll()
-                .stream()
-                .map(com.apiaura.apiaura.org.organization.dto.response.OrganizationResponse::from)
-                .toList();
+    @Transactional
+    public AuthResponse issueSession(User user) {
+        return createAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public User registerInvitedUser(
+            String name,
+            String email,
+            String rawPassword,
+            String mobileNumber,
+            com.apiaura.apiaura.org.organization.entity.Organization organization,
+            com.apiaura.apiaura.identity.role.entity.Role invitedRole
+    ) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new BadRequestException("An account already exists for email: " + normalizedEmail);
+        }
+
+        User user = new User();
+        user.setName(name);
+        user.setEmail(normalizedEmail);
+        user.setMobileNumber(mobileNumber);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setStatus(UserStatus.ACTIVE);
+        user.setOrganization(organization);
+
+        user = userRepository.save(user);
+
+        // Assign GUEST role
+        final User savedUser = user;
+        roleRepository.findByCode("GUEST").ifPresent(guestRole -> {
+            com.apiaura.apiaura.identity.role.entity.UserRole ur = new com.apiaura.apiaura.identity.role.entity.UserRole();
+            ur.setUser(savedUser);
+            ur.setRole(guestRole);
+            ur.setAssignedAt(Instant.now());
+            userRoleRepository.save(ur);
+            savedUser.getRoles().add(ur);
+        });
+
+        // Assign Invited Role if distinct from GUEST
+        if (invitedRole != null && (savedUser.getRoles().isEmpty() ||
+                savedUser.getRoles().stream().noneMatch(r -> r.getRole().getId().equals(invitedRole.getId())))) {
+            com.apiaura.apiaura.identity.role.entity.UserRole ur = new com.apiaura.apiaura.identity.role.entity.UserRole();
+            ur.setUser(savedUser);
+            ur.setRole(invitedRole);
+            ur.setAssignedAt(Instant.now());
+            userRoleRepository.save(ur);
+            savedUser.getRoles().add(ur);
+        }
+
+        user = userRepository.save(savedUser);
+
+        // Create default personal workspace and collection
+        createDefaultWorkspaceForUser(user);
+
+        return user;
     }
 
     @Override

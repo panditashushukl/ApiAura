@@ -59,7 +59,10 @@ public class SecurityConfig {
                                 "/api/v1/auth/**",
                                 "/api/v1/health",
                                 "/actuator/health",
-                                "/error"
+                                "/error",
+                                "/api/v1/organizations/invitations/verify",
+                                "/api/v1/organizations/invitations/accept-and-register",
+                                "/api/v1/organizations/invitations/reject"
                         ).permitAll()
 
                         .anyRequest()

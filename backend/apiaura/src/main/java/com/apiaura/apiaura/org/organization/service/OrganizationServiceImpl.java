@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
-import com.apiaura.apiaura.org.organization.entity.OrganizationMembershipRequest;
-import com.apiaura.apiaura.org.organization.repository.OrganizationMembershipRequestRepository;
+import com.apiaura.apiaura.org.organization.entity.OrganizationInvitation;
+import com.apiaura.apiaura.org.organization.repository.OrganizationInvitationRepository;
 import com.apiaura.apiaura.identity.role.entity.Role;
 
 @Service
@@ -30,7 +30,7 @@ public class OrganizationServiceImpl
     private final UserRepository userRepository;
     private final com.apiaura.apiaura.identity.role.repository.RoleRepository roleRepository;
     private final com.apiaura.apiaura.identity.role.repository.UserRoleRepository userRoleRepository;
-    private final OrganizationMembershipRequestRepository membershipRequestRepository;
+    private final OrganizationInvitationRepository invitationRepository;
 
     @Override
     @Transactional
@@ -170,10 +170,10 @@ public class OrganizationServiceImpl
             userRepository.saveAll(users);
         }
 
-        // 2. Delete membership requests associated with this organization
-        List<OrganizationMembershipRequest> membershipRequests = membershipRequestRepository.findByOrganizationId(organizationId);
-        if (!membershipRequests.isEmpty()) {
-            membershipRequestRepository.deleteAll(membershipRequests);
+        // 2. Delete invitations associated with this organization
+        List<OrganizationInvitation> invitations = invitationRepository.findByOrganizationId(organizationId);
+        if (!invitations.isEmpty()) {
+            invitationRepository.deleteAll(invitations);
         }
 
         // 3. Unlink organization-scoped custom roles

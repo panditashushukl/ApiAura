@@ -10,20 +10,18 @@ import lombok.Setter;
 @Setter
 public class RegisterRequest {
 
-    @NotBlank
-    @Size(min = 2, max = 100)
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
 
-    @Email
-    @NotBlank
+    @Email(message = "Valid email address is required")
+    @NotBlank(message = "Email is required")
     private String email;
 
-    @NotBlank
-    @Size(min = 8, max = 100)
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, max = 100, message = "Password must be at least 8 characters")
     private String password;
 
-    @Size(max = 30)
+    @Size(max = 30, message = "Mobile number cannot exceed 30 characters")
     private String mobileNumber;
-
-    private java.util.UUID organizationId;
 }
