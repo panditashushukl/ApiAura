@@ -44,7 +44,17 @@ public class OrganizationController {
             return ApiResponse.success(organizationService.getAll());
         }
 
-        return ApiResponse.success(organizationService.getByOwner(currentUserId));
+        List<OrganizationResponse> owned = organizationService.getByOwner(currentUserId);
+        if (!owned.isEmpty()) {
+            return ApiResponse.success(owned);
+        }
+
+        var userOpt = userRepository.findById(currentUserId);
+        if (userOpt.isPresent() && userOpt.get().getOrganization() != null) {
+            return ApiResponse.success(List.of(OrganizationResponse.from(userOpt.get().getOrganization())));
+        }
+
+        return ApiResponse.success(List.of());
     }
 
     @GetMapping("/all")

@@ -3,6 +3,11 @@ package com.apiaura.apiaura.identity.user.service;
 import com.apiaura.apiaura.foundation.common.enums.UserStatus;
 import com.apiaura.apiaura.foundation.common.exception.BadRequestException;
 import com.apiaura.apiaura.foundation.common.exception.ResourceNotFoundException;
+import com.apiaura.apiaura.foundation.common.security.SecurityUtils;
+import com.apiaura.apiaura.identity.role.entity.UserRole;
+import com.apiaura.apiaura.identity.role.repository.RoleRepository;
+import com.apiaura.apiaura.identity.role.repository.UserRoleRepository;
+import com.apiaura.apiaura.identity.user.dto.request.CreateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.request.UpdateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.response.UserResponse;
 import com.apiaura.apiaura.identity.user.entity.User;
@@ -11,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +28,65 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.apiaura.apiaura.org.organization.repository.OrganizationRepository organizationRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
+
+    @Override
+    @Transactional
+    public UserResponse create(CreateUserRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("Email is already registered");
+        }
+
+        User user = new User();
+        user.setName(request.getName().trim());
+        user.setEmail(email);
+        user.setMobileNumber(request.getMobileNumber());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setStatus(UserStatus.ACTIVE);
+
+        UUID orgId = request.getOrganizationId();
+        if (orgId == null) {
+            try {
+                UUID currentUserId = SecurityUtils.getCurrentUserId();
+                User currentUser = findUser(currentUserId);
+                if (currentUser.getOrganization() != null) {
+                    orgId = currentUser.getOrganization().getId();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (orgId != null) {
+            organizationRepository.findById(orgId).ifPresent(user::setOrganization);
+        }
+
+        user = userRepository.save(user);
+
+        if (request.getRoleId() != null) {
+            final User savedUser = user;
+            roleRepository.findById(request.getRoleId()).ifPresent(role -> {
+                UserRole ur = new UserRole();
+                ur.setUser(savedUser);
+                ur.setRole(role);
+                ur.setAssignedAt(Instant.now());
+                userRoleRepository.save(ur);
+                savedUser.getRoles().add(ur);
+            });
+        } else {
+            final User savedUser = user;
+            roleRepository.findByCode("GUEST").ifPresent(role -> {
+                UserRole ur = new UserRole();
+                ur.setUser(savedUser);
+                ur.setRole(role);
+                ur.setAssignedAt(Instant.now());
+                userRoleRepository.save(ur);
+                savedUser.getRoles().add(ur);
+            });
+        }
+
+        return UserResponse.from(user);
+    }
 
     @Override
     public UserResponse getById(UUID userId) {

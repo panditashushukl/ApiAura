@@ -7,7 +7,10 @@ import lombok.Getter;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Getter
@@ -39,8 +42,8 @@ public class UserResponse {
     private List<String> permissions;
 
     public static UserResponse from(User user) {
-        List<String> roleCodes = new ArrayList<>();
-        List<String> permissionCodes = new ArrayList<>();
+        Set<String> roleCodes = new LinkedHashSet<>();
+        Set<String> permissionCodes = new TreeSet<>();
 
         try {
             if (user.getRoles() != null) {
@@ -130,8 +133,8 @@ public class UserResponse {
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
-                .roles(roleCodes)
-                .permissions(permissionCodes)
+                .roles(new ArrayList<>(roleCodes))
+                .permissions(new ArrayList<>(permissionCodes))
                 .build();
     }
 }

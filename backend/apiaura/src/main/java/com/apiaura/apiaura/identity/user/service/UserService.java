@@ -1,6 +1,7 @@
 package com.apiaura.apiaura.identity.user.service;
 
 import com.apiaura.apiaura.foundation.common.enums.UserStatus;
+import com.apiaura.apiaura.identity.user.dto.request.CreateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.request.UpdateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.response.UserResponse;
 
@@ -8,6 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface UserService {
+
+    UserResponse create(CreateUserRequest request);
 
     UserResponse getById(UUID userId);
 

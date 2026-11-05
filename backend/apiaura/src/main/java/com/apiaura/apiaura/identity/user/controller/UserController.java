@@ -2,6 +2,7 @@ package com.apiaura.apiaura.identity.user.controller;
 
 import com.apiaura.apiaura.foundation.common.enums.UserStatus;
 import com.apiaura.apiaura.foundation.common.response.ApiResponse;
+import com.apiaura.apiaura.identity.user.dto.request.CreateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.request.UpdateUserRequest;
 import com.apiaura.apiaura.identity.user.dto.response.UserResponse;
 import com.apiaura.apiaura.identity.user.service.UserService;
@@ -69,6 +70,16 @@ public class UserController {
     @GetMapping
     public ApiResponse<List<UserResponse>> getAll() {
         return ApiResponse.success(userService.getAll());
+    }
+
+    @PostMapping
+    public ApiResponse<UserResponse> create(
+            @Valid @RequestBody CreateUserRequest request
+    ) {
+        return ApiResponse.success(
+                "User created",
+                userService.create(request)
+        );
     }
 
     @GetMapping("/{userId}")
