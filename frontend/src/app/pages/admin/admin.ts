@@ -115,7 +115,6 @@ export class AdminComponent implements OnInit {
     'resource',
     'action',
     'description',
-    'actions',
   ];
   readonly organizationColumns = [
     'name',
@@ -236,10 +235,10 @@ export class AdminComponent implements OnInit {
         return 'Add User';
       case 'roles':
         return 'Add Role';
-      case 'permissions':
-        return 'Add Permission';
       case 'organizations':
         return 'Add Organisation';
+      default:
+        return '';
     }
   });
 
@@ -574,10 +573,6 @@ export class AdminComponent implements OnInit {
       case 'roles':
         this.createRoleForm.reset();
         this.showCreateRoleModal.set(true);
-        break;
-      case 'permissions':
-        this.createPermissionForm.reset();
-        this.showCreatePermissionModal.set(true);
         break;
       case 'organizations':
         this.createOrgForm.reset();
@@ -979,12 +974,12 @@ export class AdminComponent implements OnInit {
       case 'role':
         action$ = this.adminService.deleteRole(target.id);
         break;
-      case 'permission':
-        action$ = this.adminService.deletePermission(target.id);
-        break;
       case 'organization':
         action$ = this.adminService.deleteOrganization(target.id);
         break;
+      default:
+        this.isLoading.set(false);
+        return;
     }
 
     action$.subscribe({
