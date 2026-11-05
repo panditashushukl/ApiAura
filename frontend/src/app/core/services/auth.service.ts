@@ -1,6 +1,7 @@
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
@@ -17,6 +18,7 @@ import {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly router = inject(Router, { optional: true });
 
   // Base URL with API versioning
   private readonly baseUrl = environment.apiBaseUrl;
@@ -30,6 +32,27 @@ export class AuthService {
   readonly errorMessage = signal<string | null>(null);
 
   readonly isAuthenticated = computed(() => !!this.currentUser());
+
+  readonly isAdmin = computed(() => {
+    const user = this.currentUser();
+    if (!user) {
+      return false;
+    }
+    const roles = user.roles || [];
+    return roles.some((role) => {
+      const code = role.toUpperCase();
+      return code === 'ADMIN' || code === 'SUPER_ADMIN' || code.includes('ADMIN');
+    });
+  });
+
+  readonly isSuperAdmin = computed(() => {
+    const user = this.currentUser();
+    if (!user) {
+      return false;
+    }
+    const roles = user.roles || [];
+    return roles.some((role) => role.toUpperCase() === 'SUPER_ADMIN');
+  });
 
   readonly firstName = computed(() => {
     const user = this.currentUser();
@@ -144,6 +167,7 @@ export class AuthService {
 
   logout(): void {
     this.clearSession();
+    this.router?.navigate(['/']);
 
     this.http
       .post(
@@ -166,6 +190,9 @@ export class AuthService {
     this.token.set(null);
     this.errorMessage.set(null);
     this.cleanLegacyStorage();
+    if (this.router && this.router.url.startsWith('/admin')) {
+      this.router.navigate(['/']);
+    }
   }
 
   private handleAuthSuccess(data: AuthResponseData): void {

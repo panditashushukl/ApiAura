@@ -1,0 +1,1045 @@
+@if (authService.isAdmin()) {
+  <div class="h-full flex flex-col p-4 sm:p-6 bg-app overflow-y-auto">
+    <!-- Controls Bar: Switchable Slice + Relevant Filters + Primary Action -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+    <!-- Switchable Slice: Users | Roles | Permission | Organisation -->
+    <div class="inline-flex items-center p-1 bg-subtle border border-app rounded-xl shrink-0" role="tablist">
+      <button
+        type="button"
+        (click)="setSlice('users')"
+        [class]="activeSlice() === 'users' ? activeSliceClass : inactiveSliceClass"
+        id="tab-slice-users"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span>Users</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-app text-muted font-mono">
+          {{ usersDataSource.filteredData.length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="setSlice('roles')"
+        [class]="activeSlice() === 'roles' ? activeSliceClass : inactiveSliceClass"
+        id="tab-slice-roles"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span>Roles</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-app text-muted font-mono">
+          {{ rolesDataSource.filteredData.length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="setSlice('permissions')"
+        [class]="activeSlice() === 'permissions' ? activeSliceClass : inactiveSliceClass"
+        id="tab-slice-permissions"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+        </svg>
+        <span>Permission</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-app text-muted font-mono">
+          {{ permissionsDataSource.filteredData.length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="setSlice('organizations')"
+        [class]="activeSlice() === 'organizations' ? activeSliceClass : inactiveSliceClass"
+        id="tab-slice-organizations"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <span>Organisation</span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-app text-muted font-mono">
+          {{ organizationsDataSource.filteredData.length }}
+        </span>
+      </button>
+    </div>
+
+    <!-- Filters + Actions toolbar -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Search Input Filter -->
+      <div class="relative min-w-[210px] flex-1 sm:flex-none">
+        <svg class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="text"
+          [value]="searchFilter()"
+          (input)="onSearchChange($event)"
+          [placeholder]="searchPlaceholder()"
+          class="w-full pl-8 pr-3 py-1.5 text-xs bg-surface border border-app rounded-xl text-main placeholder:text-muted focus:outline-none focus:border-bhagwa transition-colors"
+          id="admin-search-input"
+        />
+      </div>
+
+      <!-- Users Specific Status Filter -->
+      @if (activeSlice() === 'users') {
+        <select
+          [value]="userStatusFilter()"
+          (change)="onUserStatusFilterChange($event)"
+          class="px-2.5 py-1.5 text-xs bg-surface border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa transition-colors"
+          id="user-status-filter"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="INACTIVE">Inactive</option>
+          <option value="PENDING">Pending</option>
+        </select>
+      }
+
+      <!-- Roles Specific Type Filter -->
+      @if (activeSlice() === 'roles') {
+        <select
+          [value]="roleTypeFilter()"
+          (change)="onRoleTypeFilterChange($event)"
+          class="px-2.5 py-1.5 text-xs bg-surface border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa transition-colors"
+          id="role-type-filter"
+        >
+          <option value="ALL">All Types</option>
+          <option value="SYSTEM">System Roles</option>
+          <option value="CUSTOM">Custom Roles</option>
+        </select>
+      }
+
+      <!-- Permissions Specific Resource Filter -->
+      @if (activeSlice() === 'permissions') {
+        <select
+          [value]="permissionResourceFilter()"
+          (change)="onPermissionResourceFilterChange($event)"
+          class="px-2.5 py-1.5 text-xs bg-surface border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa transition-colors"
+          id="permission-resource-filter"
+        >
+          <option value="ALL">All Resources</option>
+          @for (res of uniqueResources(); track res) {
+            <option [value]="res">{{ res }}</option>
+          }
+        </select>
+      }
+
+      <!-- Refresh Button -->
+      <button
+        type="button"
+        (click)="refreshCurrentSlice()"
+        title="Refresh Data"
+        class="p-2 bg-surface hover:bg-subtle text-secondary hover:text-main border border-app rounded-xl cursor-pointer transition-colors"
+        id="admin-refresh-button"
+      >
+        <svg class="w-3.5 h-3.5" [class.animate-spin]="isLoading()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+
+      <!-- Primary Action CTA Button -->
+      <button
+        type="button"
+        (click)="openCreateModal()"
+        class="px-3 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 text-white rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+        id="admin-create-button"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        <span>{{ createButtonLabel() }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback Toast / Alerts -->
+  @if (feedbackMessage()) {
+    <div class="mb-3 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="font-bold">✓</span>
+        <span>{{ feedbackMessage() }}</span>
+      </div>
+      <button (click)="feedbackMessage.set(null)" class="text-emerald-600/70 hover:text-emerald-600 cursor-pointer">✕</button>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="mb-3 px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="font-bold">✕</span>
+        <span>{{ errorMessage() }}</span>
+      </div>
+      <button (click)="errorMessage.set(null)" class="text-rose-600/70 hover:text-rose-600 cursor-pointer">✕</button>
+    </div>
+  }
+
+  <!-- Data Display Container (Mat Table) -->
+  <div class="flex-1 bg-surface border border-app rounded-2xl shadow-xs overflow-hidden flex flex-col">
+    <!-- SLICE 1: USERS MAT-TABLE -->
+    @if (activeSlice() === 'users') {
+      <div class="flex-1 overflow-x-auto">
+        <table mat-table [dataSource]="usersDataSource" matSort #usersSort="matSort" class="w-full">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>User</th>
+            <td mat-cell *matCellDef="let user">
+              <div class="flex items-center gap-2.5 py-1">
+                <div class="w-7 h-7 rounded-lg bg-bhagwa-500/15 text-bhagwa font-bold text-xs flex items-center justify-center shrink-0 border border-bhagwa-500/20">
+                  {{ user.name?.charAt(0) || 'U' }}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-semibold text-main text-xs truncate">{{ user.name }}</p>
+                  @if (user.mobileNumber) {
+                    <p class="text-[10px] text-muted">{{ user.mobileNumber }}</p>
+                  }
+                </div>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Email Column -->
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Email</th>
+            <td mat-cell *matCellDef="let user" class="font-mono text-xs text-secondary">
+              {{ user.email }}
+            </td>
+          </ng-container>
+
+          <!-- Organisation Column -->
+          <ng-container matColumnDef="organization">
+            <th mat-header-cell *matHeaderCellDef>Organisation</th>
+            <td mat-cell *matCellDef="let user">
+              @if (user.organizationName) {
+                <span class="px-2 py-0.5 rounded-md bg-subtle text-secondary border border-app text-[11px] font-medium">
+                  {{ user.organizationName }}
+                </span>
+              } @else {
+                <span class="text-muted text-[11px] italic">None</span>
+              }
+            </td>
+          </ng-container>
+
+          <!-- Roles Column -->
+          <ng-container matColumnDef="roles">
+            <th mat-header-cell *matHeaderCellDef>Roles</th>
+            <td mat-cell *matCellDef="let user">
+              <div class="flex flex-wrap gap-1">
+                @for (role of user.roles; track role) {
+                  <span
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                    [class.bg-bhagwa-500/15]="role === 'ADMIN' || role === 'SUPER_ADMIN'"
+                    [class.text-bhagwa]="role === 'ADMIN' || role === 'SUPER_ADMIN'"
+                    [class.border]="true"
+                    [class.border-bhagwa-500/30]="role === 'ADMIN' || role === 'SUPER_ADMIN'"
+                    [class.bg-subtle]="role !== 'ADMIN' && role !== 'SUPER_ADMIN'"
+                    [class.text-secondary]="role !== 'ADMIN' && role !== 'SUPER_ADMIN'"
+                    [class.border-app]="role !== 'ADMIN' && role !== 'SUPER_ADMIN'"
+                  >
+                    {{ role }}
+                  </span>
+                }
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+            <td mat-cell *matCellDef="let user">
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border inline-flex items-center gap-1"
+                [class.bg-emerald-500/10]="user.status === 'ACTIVE'"
+                [class.text-emerald-600]="user.status === 'ACTIVE'"
+                [class.dark:text-emerald-400]="user.status === 'ACTIVE'"
+                [class.border-emerald-500/20]="user.status === 'ACTIVE'"
+                [class.bg-rose-500/10]="user.status === 'SUSPENDED' || user.status === 'INACTIVE'"
+                [class.text-rose-600]="user.status === 'SUSPENDED' || user.status === 'INACTIVE'"
+                [class.dark:text-rose-400]="user.status === 'SUSPENDED' || user.status === 'INACTIVE'"
+                [class.border-rose-500/20]="user.status === 'SUSPENDED' || user.status === 'INACTIVE'"
+                [class.bg-amber-500/10]="user.status === 'PENDING'"
+                [class.text-amber-600]="user.status === 'PENDING'"
+                [class.dark:text-amber-400]="user.status === 'PENDING'"
+                [class.border-amber-500/25]="user.status === 'PENDING'"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" [class.bg-emerald-500]="user.status === 'ACTIVE'" [class.bg-rose-500]="user.status === 'SUSPENDED' || user.status === 'INACTIVE'" [class.bg-amber-500]="user.status === 'PENDING'"></span>
+                {{ user.status }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Created Date Column -->
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Joined</th>
+            <td mat-cell *matCellDef="let user" class="text-xs text-muted">
+              {{ user.createdAt ? (user.createdAt | date: 'mediumDate') : '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+            <td mat-cell *matCellDef="let user" class="text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <!-- Toggle Status Button -->
+                <button
+                  type="button"
+                  (click)="toggleUserStatus(user)"
+                  [title]="user.status === 'ACTIVE' ? 'Suspend User' : 'Activate User'"
+                  class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+                >
+                  @if (user.status === 'ACTIVE') {
+                    <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  } @else {
+                    <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                </button>
+
+                <!-- Manage Roles Button -->
+                <button
+                  type="button"
+                  (click)="openManageUserRoles(user)"
+                  title="Manage User Roles"
+                  class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </button>
+
+                <!-- Create / Reset Password Button -->
+                <button
+                  type="button"
+                  (click)="openResetPasswordModal(user)"
+                  title="Create New Password"
+                  class="p-1.5 rounded-lg text-secondary hover:text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                  [attr.id]="'btn-new-password-' + user.id"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                </button>
+
+                <!-- Edit User Button -->
+                <button
+                  type="button"
+                  (click)="openEditUser(user)"
+                  title="Edit User"
+                  class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+                  [attr.id]="'btn-edit-user-' + user.id"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
+                <!-- Delete User Button -->
+                <button
+                  type="button"
+                  (click)="confirmDelete('user', user.id, user.name)"
+                  title="Delete User"
+                  class="p-1.5 rounded-lg text-secondary hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="userColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: userColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell p-8 text-center text-muted text-xs" [attr.colspan]="userColumns.length">
+              No users found matching your filters.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <mat-paginator #usersPaginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+    }
+
+    <!-- SLICE 2: ROLES MAT-TABLE -->
+    @if (activeSlice() === 'roles') {
+      <div class="flex-1 overflow-x-auto">
+        <table mat-table [dataSource]="rolesDataSource" matSort #rolesSort="matSort" class="w-full">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Role Name</th>
+            <td mat-cell *matCellDef="let role" class="font-semibold text-main text-xs">
+              {{ role.name }}
+            </td>
+          </ng-container>
+
+          <!-- Code Column -->
+          <ng-container matColumnDef="code">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th>
+            <td mat-cell *matCellDef="let role">
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-subtle border border-app text-secondary font-bold">
+                {{ role.code }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Description Column -->
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Description</th>
+            <td mat-cell *matCellDef="let role" class="text-xs text-secondary max-w-xs truncate">
+              {{ role.description || '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Type Column -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
+            <td mat-cell *matCellDef="let role">
+              @if (role.systemRole) {
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-bhagwa-500/10 text-bhagwa border border-bhagwa-500/20">
+                  SYSTEM
+                </span>
+              } @else {
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-subtle text-secondary border border-app">
+                  CUSTOM
+                </span>
+              }
+            </td>
+          </ng-container>
+
+          <!-- Created At Column -->
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Created</th>
+            <td mat-cell *matCellDef="let role" class="text-xs text-muted">
+              {{ role.createdAt ? (role.createdAt | date: 'mediumDate') : '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+            <td mat-cell *matCellDef="let role" class="text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <!-- Manage Role Permissions -->
+                <button
+                  type="button"
+                  (click)="openManageRolePermissions(role)"
+                  title="Configure Permissions"
+                  class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                </button>
+
+                <!-- Edit Role -->
+                <button
+                  type="button"
+                  (click)="openEditRole(role)"
+                  title="Edit Role"
+                  class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
+                <!-- Delete Role -->
+                @if (!role.systemRole) {
+                  <button
+                    type="button"
+                    (click)="confirmDelete('role', role.id, role.name)"
+                    title="Delete Role"
+                    class="p-1.5 rounded-lg text-secondary hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                }
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="roleColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: roleColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell p-8 text-center text-muted text-xs" [attr.colspan]="roleColumns.length">
+              No roles found matching your filters.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <mat-paginator #rolesPaginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+    }
+
+    <!-- SLICE 3: PERMISSION MAT-TABLE -->
+    @if (activeSlice() === 'permissions') {
+      <div class="flex-1 overflow-x-auto">
+        <table mat-table [dataSource]="permissionsDataSource" matSort #permissionsSort="matSort" class="w-full">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Permission</th>
+            <td mat-cell *matCellDef="let perm" class="font-semibold text-main text-xs">
+              {{ perm.name }}
+            </td>
+          </ng-container>
+
+          <!-- Code Column -->
+          <ng-container matColumnDef="code">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th>
+            <td mat-cell *matCellDef="let perm">
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-subtle border border-app text-secondary font-bold">
+                {{ perm.code }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Resource Column -->
+          <ng-container matColumnDef="resource">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Resource</th>
+            <td mat-cell *matCellDef="let perm">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-bhagwa-500/10 text-bhagwa border border-bhagwa-500/20">
+                {{ perm.resource }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Action Column -->
+          <ng-container matColumnDef="action">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Action</th>
+            <td mat-cell *matCellDef="let perm">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-subtle text-secondary border border-app uppercase">
+                {{ perm.action }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Description Column -->
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Description</th>
+            <td mat-cell *matCellDef="let perm" class="text-xs text-secondary max-w-sm truncate">
+              {{ perm.description || '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+            <td mat-cell *matCellDef="let perm" class="text-right whitespace-nowrap">
+              <button
+                type="button"
+                (click)="confirmDelete('permission', perm.id, perm.name)"
+                title="Delete Permission"
+                class="p-1.5 rounded-lg text-secondary hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="permissionColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: permissionColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell p-8 text-center text-muted text-xs" [attr.colspan]="permissionColumns.length">
+              No permissions found matching your filters.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <mat-paginator #permissionsPaginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+    }
+
+    <!-- SLICE 4: ORGANISATION MAT-TABLE -->
+    @if (activeSlice() === 'organizations') {
+      <div class="flex-1 overflow-x-auto">
+        <table mat-table [dataSource]="organizationsDataSource" matSort #orgsSort="matSort" class="w-full">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Organisation Name</th>
+            <td mat-cell *matCellDef="let org">
+              <div class="flex items-center gap-2.5 py-1">
+                <div class="w-7 h-7 rounded-lg bg-bhagwa-500/10 text-bhagwa flex items-center justify-center font-bold text-xs shrink-0 border border-bhagwa-500/20">
+                  {{ org.name?.charAt(0) || 'O' }}
+                </div>
+                <div class="font-semibold text-main text-xs">{{ org.name }}</div>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Slug Column -->
+          <ng-container matColumnDef="slug">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Slug</th>
+            <td mat-cell *matCellDef="let org" class="font-mono text-xs text-secondary">
+              {{ org.slug }}
+            </td>
+          </ng-container>
+
+          <!-- Owner ID Column -->
+          <ng-container matColumnDef="ownerId">
+            <th mat-header-cell *matHeaderCellDef>Owner Identifier</th>
+            <td mat-cell *matCellDef="let org" class="font-mono text-[11px] text-muted">
+              {{ org.ownerId || '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Created At Column -->
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Created</th>
+            <td mat-cell *matCellDef="let org" class="text-xs text-muted">
+              {{ org.createdAt ? (org.createdAt | date: 'mediumDate') : '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+            <td mat-cell *matCellDef="let org" class="text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <!-- Edit Org -->
+                <button
+                  type="button"
+                  (click)="openEditOrg(org)"
+                  title="Edit Organisation"
+                  class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
+                <!-- Delete Org -->
+                <button
+                  type="button"
+                  (click)="confirmDelete('organization', org.id, org.name)"
+                  title="Delete Organisation"
+                  class="p-1.5 rounded-lg text-secondary hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="organizationColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: organizationColumns;"></tr>
+
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell p-8 text-center text-muted text-xs" [attr.colspan]="organizationColumns.length">
+              No organisation found matching your filters.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <mat-paginator #orgsPaginator [pageSize]="10" [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons></mat-paginator>
+    }
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. CREATE USER MODAL -->
+  @if (showCreateUserModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Add User</p>
+          <button (click)="showCreateUserModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="createUserForm" (ngSubmit)="submitCreateUser()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Full Name</label>
+            <input formControlName="name" type="text" placeholder="e.g. Rahul Sharma" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Email Address</label>
+            <input formControlName="email" type="email" placeholder="e.g. rahul@example.com" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Password</label>
+            <input formControlName="password" type="password" placeholder="At least 6 characters" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Mobile Number (Optional)</label>
+            <input formControlName="mobileNumber" type="text" placeholder="e.g. +91 9876543210" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Organisation</label>
+            <select formControlName="organizationId" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" id="create-user-org-select">
+              <option value="">Default (Account's Organisation)</option>
+              @for (org of organizations(); track org.id) {
+                <option [value]="org.id">{{ org.name }} ({{ org.slug }})</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Initial Role</label>
+            <select formControlName="roleId" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa">
+              <option value="">Default (GUEST)</option>
+              @for (role of roles(); track role.id) {
+                <option [value]="role.id">{{ role.name }} ({{ role.code }})</option>
+              }
+            </select>
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showCreateUserModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="createUserForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Save User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 2. EDIT USER MODAL -->
+  @if (showEditUserModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <div>
+            <p class="font-bold text-main text-sm">Edit User</p>
+            <p class="text-[11px] text-muted">{{ selectedUser()?.name }}</p>
+          </div>
+          <button (click)="showEditUserModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="editUserForm" (ngSubmit)="submitEditUser()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Full Name</label>
+            <input formControlName="name" type="text" placeholder="Full name" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" id="edit-user-name" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Email Address</label>
+            <input formControlName="email" type="email" placeholder="Email address" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" id="edit-user-email" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Phone Number</label>
+            <input formControlName="mobileNumber" type="text" placeholder="e.g. +91 9876543210" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" id="edit-user-phone" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Organisation</label>
+            <select formControlName="organizationId" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" id="edit-user-org-select">
+              <option value="">No Organisation (Unassigned)</option>
+              @for (org of organizations(); track org.id) {
+                <option [value]="org.id">{{ org.name }} ({{ org.slug }})</option>
+              }
+            </select>
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showEditUserModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="editUserForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Update User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- CREATE NEW PASSWORD MODAL -->
+  @if (showResetPasswordModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <div>
+            <p class="font-bold text-main text-sm">Create New Password</p>
+            <p class="text-[11px] text-muted">{{ selectedUser()?.name }} ({{ selectedUser()?.email }})</p>
+          </div>
+          <button (click)="showResetPasswordModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="resetPasswordForm" (ngSubmit)="submitResetPassword()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">New Password</label>
+            <div class="relative">
+              <input
+                formControlName="newPassword"
+                [type]="showPasswordText() ? 'text' : 'password'"
+                placeholder="Enter new password (min. 6 characters)"
+                class="w-full px-3 py-1.5 pr-8 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa font-mono"
+                id="input-user-new-password"
+              />
+              <button
+                type="button"
+                (click)="showPasswordText.set(!showPasswordText())"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-main cursor-pointer"
+                title="Toggle password visibility"
+              >
+                @if (showPasswordText()) {
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                  </svg>
+                } @else {
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                }
+              </button>
+            </div>
+            @if (resetPasswordForm.get('newPassword')?.touched && resetPasswordForm.get('newPassword')?.invalid) {
+              <p class="text-[10px] text-rose-500 mt-1">Password must be at least 6 characters long.</p>
+            }
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showResetPasswordModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="resetPasswordForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Set New Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 3. MANAGE USER ROLES MODAL -->
+  @if (showUserRolesModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <div>
+            <p class="font-bold text-main text-sm">Manage Roles</p>
+            <p class="text-[11px] text-muted">{{ selectedUser()?.name }} ({{ selectedUser()?.email }})</p>
+          </div>
+          <button (click)="showUserRolesModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <div class="p-5 max-h-80 overflow-y-auto space-y-2">
+          @for (role of roles(); track role.id) {
+            <div class="flex items-center justify-between p-2.5 rounded-xl border border-app bg-subtle">
+              <div>
+                <p class="text-xs font-bold text-main">{{ role.name }}</p>
+                <p class="text-[10px] font-mono text-muted">{{ role.code }}</p>
+              </div>
+              <button
+                type="button"
+                (click)="toggleRoleAssignment(role.id)"
+                [class]="isRoleAssignedToSelectedUser(role.id) ? 'px-2.5 py-1 text-[11px] font-bold rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-500/20 cursor-pointer' : 'px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20 cursor-pointer'"
+              >
+                {{ isRoleAssignedToSelectedUser(role.id) ? 'Remove' : 'Assign' }}
+              </button>
+            </div>
+          }
+        </div>
+        <div class="px-5 py-3 bg-subtle/50 border-t border-app flex justify-end">
+          <button type="button" (click)="showUserRolesModal.set(false)" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 text-white rounded-xl cursor-pointer">Done</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 4. CREATE ROLE MODAL -->
+  @if (showCreateRoleModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Add Role</p>
+          <button (click)="showCreateRoleModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="createRoleForm" (ngSubmit)="submitCreateRole()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Role Name</label>
+            <input formControlName="name" type="text" placeholder="e.g. Lead Reviewer" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Role Code</label>
+            <input formControlName="code" type="text" placeholder="e.g. REVIEWER" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main font-mono uppercase focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Description</label>
+            <textarea formControlName="description" rows="3" placeholder="Describe role capabilities..." class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa"></textarea>
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showCreateRoleModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="createRoleForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Save Role</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 5. EDIT ROLE MODAL -->
+  @if (showEditRoleModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Edit Role: {{ selectedRole()?.code }}</p>
+          <button (click)="showEditRoleModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="editRoleForm" (ngSubmit)="submitEditRole()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Role Name</label>
+            <input formControlName="name" type="text" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Description</label>
+            <textarea formControlName="description" rows="3" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa"></textarea>
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showEditRoleModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="editRoleForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Update Role</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 6. MANAGE ROLE PERMISSIONS MODAL -->
+  @if (showRolePermissionsModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <div>
+            <p class="font-bold text-main text-sm">Configure Role Permissions</p>
+            <p class="text-[11px] text-muted">{{ selectedRole()?.name }} ({{ selectedRole()?.code }})</p>
+          </div>
+          <button (click)="showRolePermissionsModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <div class="p-5 max-h-96 overflow-y-auto space-y-2">
+          @for (perm of permissions(); track perm.id) {
+            <div class="flex items-center justify-between p-2.5 rounded-xl border border-app bg-subtle">
+              <div class="min-w-0 pr-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-main">{{ perm.name }}</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-bhagwa-500/10 text-bhagwa">{{ perm.code }}</span>
+                </div>
+                <p class="text-[10px] text-muted truncate">{{ perm.description || perm.resource + ' : ' + perm.action }}</p>
+              </div>
+              <button
+                type="button"
+                (click)="togglePermissionGrant(perm.id)"
+                [class]="isPermissionGrantedToRole(perm.id) ? 'px-2.5 py-1 text-[11px] font-bold rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-500/20 cursor-pointer shrink-0' : 'px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20 cursor-pointer shrink-0'"
+              >
+                {{ isPermissionGrantedToRole(perm.id) ? 'Revoke' : 'Grant' }}
+              </button>
+            </div>
+          }
+        </div>
+        <div class="px-5 py-3 bg-subtle/50 border-t border-app flex justify-end">
+          <button type="button" (click)="showRolePermissionsModal.set(false)" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 text-white rounded-xl cursor-pointer">Done</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 7. CREATE PERMISSION MODAL -->
+  @if (showCreatePermissionModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Add Permission</p>
+          <button (click)="showCreatePermissionModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="createPermissionForm" (ngSubmit)="submitCreatePermission()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Permission Name</label>
+            <input formControlName="name" type="text" placeholder="e.g. Export Workspaces" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Code</label>
+            <input formControlName="code" type="text" placeholder="e.g. WORKSPACE:EXPORT" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main font-mono uppercase focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-secondary mb-1">Resource</label>
+              <input formControlName="resource" type="text" placeholder="e.g. WORKSPACE" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main uppercase focus:outline-none focus:border-bhagwa" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-secondary mb-1">Action</label>
+              <input formControlName="action" type="text" placeholder="e.g. EXPORT" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main uppercase focus:outline-none focus:border-bhagwa" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Description</label>
+            <textarea formControlName="description" rows="2" placeholder="Describe permission scope..." class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa"></textarea>
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showCreatePermissionModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="createPermissionForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Save Permission</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 8. CREATE ORGANISATION MODAL -->
+  @if (showCreateOrgModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Add Organisation</p>
+          <button (click)="showCreateOrgModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="createOrgForm" (ngSubmit)="submitCreateOrg()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Organisation Name</label>
+            <input formControlName="name" type="text" placeholder="e.g. Acme Corporation" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Slug (URL friendly)</label>
+            <input formControlName="slug" type="text" placeholder="e.g. acme-corp" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main font-mono lowercase focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showCreateOrgModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="createOrgForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Save Organisation</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 9. EDIT ORGANISATION MODAL -->
+  @if (showEditOrgModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-5 py-3.5 border-b border-app flex items-center justify-between">
+          <p class="font-bold text-main text-sm">Edit Organisation: {{ selectedOrg()?.name }}</p>
+          <button (click)="showEditOrgModal.set(false)" class="text-muted hover:text-main cursor-pointer">✕</button>
+        </div>
+        <form [formGroup]="editOrgForm" (ngSubmit)="submitEditOrg()" class="p-5 space-y-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Organisation Name</label>
+            <input formControlName="name" type="text" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Slug</label>
+            <input formControlName="slug" type="text" class="w-full px-3 py-1.5 text-xs bg-subtle border border-app rounded-xl text-main font-mono lowercase focus:outline-none focus:border-bhagwa" />
+          </div>
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" (click)="showEditOrgModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="submit" [disabled]="editOrgForm.invalid || isLoading()" class="px-4 py-1.5 text-xs font-bold bg-bhagwa-600 hover:bg-bhagwa-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Update Organisation</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- 10. REUSABLE DELETE CONFIRMATION MODAL -->
+  @if (showDeleteModal()) {
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-surface border border-app rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-5">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center mb-3">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p class="font-bold text-main text-sm">Delete {{ deleteTarget()?.type }}?</p>
+          <p class="text-xs text-secondary mt-1">
+            Are you sure you want to permanently delete <span class="font-bold text-main">{{ deleteTarget()?.name }}</span>? This action cannot be undone.
+          </p>
+          <div class="pt-4 flex items-center justify-end gap-2">
+            <button type="button" (click)="showDeleteModal.set(false)" class="px-3.5 py-1.5 text-xs font-medium text-secondary hover:text-main bg-subtle rounded-xl cursor-pointer">Cancel</button>
+            <button type="button" (click)="executeDelete()" [disabled]="isLoading()" class="px-4 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl cursor-pointer">Confirm Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+  </div>
+}
+

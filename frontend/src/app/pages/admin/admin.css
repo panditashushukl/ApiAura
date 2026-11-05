@@ -1,0 +1,64 @@
+/* Admin Control Panel Styles - Bhagwa System Aligned */
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Angular Material Table Bhagwa Customization */
+.mat-mdc-table {
+  background-color: transparent !important;
+  font-family: inherit !important;
+  width: 100%;
+}
+
+.mat-mdc-header-row {
+  background-color: var(--bg-subtle) !important;
+  min-height: 44px !important;
+}
+
+.mat-mdc-header-cell {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  border-bottom: 1px solid var(--border-app) !important;
+  padding: 0.625rem 1rem !important;
+  white-space: nowrap;
+}
+
+.mat-mdc-row {
+  min-height: 52px !important;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.mat-mdc-row:hover {
+  background-color: var(--bg-surface-hover) !important;
+}
+
+.mat-mdc-cell {
+  color: var(--text-main) !important;
+  font-size: 0.8125rem !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 0.625rem 1rem !important;
+}
+
+/* Material Paginator Customization */
+.mat-mdc-paginator {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border-top: 1px solid var(--border-app) !important;
+  font-size: 0.75rem !important;
+}
+
+.mat-mdc-paginator .mat-mdc-select-value,
+.mat-mdc-paginator .mat-mdc-paginator-range-label {
+  color: var(--text-secondary) !important;
+}
+
+.mat-mdc-paginator-icon {
+  fill: var(--text-secondary) !important;
+}
+

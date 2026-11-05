@@ -1,6 +1,43 @@
 <aside
-  class="w-64 border-r border-app bg-surface h-full flex flex-col shrink-0 transition-colors"
+  class="w-64 border-r border-app bg-surface h-full flex flex-col shrink-0 transition-colors select-none"
   aria-label="Sidebar"
 >
-  <!-- Sidebar skeleton (intentionally empty) -->
+  <div class="flex-1 overflow-y-auto p-3 space-y-4">
+    <!-- Administration Option: Visible only to Admin -->
+    @if (authService.isAdmin()) {
+      <div class="space-y-1">
+        <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-muted mb-1.5">
+          Administration
+        </p>
+        <a
+          routerLink="/admin"
+          routerLinkActive="bg-bhagwa-500/15 text-bhagwa border-bhagwa-500/30 font-bold shadow-xs"
+          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-secondary hover:text-main hover:bg-subtle border border-transparent transition-all group"
+          id="sidebar-admin-link"
+        >
+          <div class="w-7 h-7 rounded-lg bg-bhagwa-500/10 text-bhagwa flex items-center justify-center shrink-0 group-hover:bg-bhagwa-500/20 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <span class="truncate flex-1">Admin</span>
+        </a>
+      </div>
+    }
+  </div>
+
+  <!-- Sidebar Footer / Organization Scope Indicator -->
+  @if (authService.currentUser()?.organizationName) {
+    <div class="p-3 border-t border-app">
+      <div class="px-2.5 py-2 rounded-xl bg-subtle border border-app text-xs flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+        <div class="truncate flex-1">
+          <p class="text-[10px] text-muted font-medium leading-none">Organisation</p>
+          <p class="font-bold text-main truncate text-xs mt-0.5">
+            {{ authService.currentUser()?.organizationName }}
+          </p>
+        </div>
+      </div>
+    </div>
+  }
 </aside>
