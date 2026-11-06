@@ -148,5 +148,19 @@ describe('ProfileComponent', () => {
     expect(switchSpy).toHaveBeenCalledWith(targetOrg);
     expect(component.orgFeedback()).toBe('Switched active organisation to Secondary Corp');
   });
+
+  it('should open logout all modal and invoke authService.logoutAll on confirm', () => {
+    const logoutAllSpy = vi.spyOn(authService, 'logoutAll').mockReturnValue(of(void 0));
+
+    expect(component.showLogoutAllModal()).toBe(false);
+    component.showLogoutAllModal.set(true);
+    expect(component.showLogoutAllModal()).toBe(true);
+
+    component.logoutFromAllDevices();
+
+    expect(logoutAllSpy).toHaveBeenCalled();
+    expect(component.isLoggingOutAll()).toBe(false);
+    expect(component.showLogoutAllModal()).toBe(false);
+  });
 });
 

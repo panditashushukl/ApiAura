@@ -383,6 +383,37 @@
             </button>
           </div>
         </div>
+
+        <!-- Logout From All Devices Card -->
+        <div class="bg-surface border border-rose-500/20 dark:border-rose-500/25 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+                <h3 class="text-xs font-bold text-main uppercase tracking-wider">Logout From All Devices</h3>
+              </div>
+              <p class="text-xs text-secondary leading-relaxed max-w-xl">
+                Revoke all active sessions and log out from every browser, mobile device, or computer where you are currently signed in.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              id="btn-open-logout-all-modal"
+              (click)="showLogoutAllModal.set(true)"
+              class="px-4 py-2.5 text-xs font-semibold rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-all flex items-center gap-2 cursor-pointer shrink-0 shadow-2xs self-stretch sm:self-auto justify-center"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>Logout from all devices</span>
+            </button>
+          </div>
+        </div>
       </div>
     }
 
@@ -521,6 +552,57 @@
                 No organisations found. Create your first organisation above!
               </div>
             }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Confirm Logout From All Devices Modal -->
+    @if (showLogoutAllModal()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div class="bg-surface border border-app rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4 animate-in zoom-in-95 duration-150">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-main">Logout from all devices?</h3>
+              <p class="text-xs text-muted">This will immediately terminate all active sessions.</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-secondary leading-relaxed">
+            You will be logged out of ApiAura on this computer and all other phones, tablets, or browsers. You will need to log in again to regain access.
+          </p>
+
+          <div class="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              id="btn-cancel-logout-all"
+              (click)="showLogoutAllModal.set(false)"
+              [disabled]="isLoggingOutAll()"
+              class="px-4 py-2 text-xs font-semibold rounded-xl border border-app bg-subtle hover:bg-surface text-secondary hover:text-main transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              id="btn-confirm-logout-all"
+              (click)="logoutFromAllDevices()"
+              [disabled]="isLoggingOutAll()"
+              class="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              @if (isLoggingOutAll()) {
+                <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Logging out...</span>
+              } @else {
+                <span>Yes, Log Out Everywhere</span>
+              }
+            </button>
           </div>
         </div>
       </div>

@@ -116,11 +116,29 @@ public class AuthController {
 
     @PostMapping("/logout-all")
     public ApiResponse<Void> logoutAll(
+            HttpServletRequest request,
             HttpServletResponse response
     ) {
-        authService.logoutAll(
-                SecurityUtils.getCurrentUserId()
-        );
+        boolean loggedOut = false;
+        try {
+            java.util.UUID currentUserId = SecurityUtils.getCurrentUserId();
+            if (currentUserId != null) {
+                authService.logoutAll(currentUserId);
+                loggedOut = true;
+            }
+        } catch (Exception ignored) {
+            // Context not authenticated; try extracting user via refreshToken cookie
+        }
+
+        if (!loggedOut && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equalsIgnoreCase(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+                    authService.logoutAllByRefreshToken(cookie.getValue());
+                    break;
+                }
+            }
+        }
+
         clearAuthCookies(response);
 
         return ApiResponse.success(

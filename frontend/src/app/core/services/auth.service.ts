@@ -189,6 +189,25 @@ export class AuthService {
       .subscribe();
   }
 
+  logoutAll(): Observable<void> {
+    return this.http
+      .post<ApiResponse<void>>(
+        `${this.baseUrl}${this.endpoint}/logout-all`,
+        {},
+        {
+          withCredentials: true,
+        },
+      )
+      .pipe(
+        map(() => void 0),
+        catchError(() => of(void 0)),
+        finalize(() => {
+          this.clearSession();
+          this.router?.navigate(['/']);
+        }),
+      );
+  }
+
   private refreshInProgress$: Observable<ApiResponse<AuthResponseData>> | null = null;
 
   /**

@@ -24,6 +24,8 @@ public interface AuthService {
 
     void logoutAll(UUID userId);
 
+    void logoutAllByRefreshToken(String rawRefreshToken);
+
     AuthResponse issueSession(User user);
 
     User registerInvitedUser(String name, String email, String rawPassword, String mobileNumber, Organization organization, Role invitedRole);

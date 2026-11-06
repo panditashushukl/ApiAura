@@ -147,6 +147,27 @@ describe('AuthService', () => {
     expect(localStorage.getItem('accessToken')).toBeNull();
   });
 
+  it('should post to logout-all and clear session on logoutAll', () => {
+    service.currentUser.set({
+      id: 'u1',
+      name: 'Shukla Ji',
+      email: 'test@example.com',
+    });
+    service.token.set('mock-token');
+
+    service.logoutAll().subscribe();
+
+    const req = httpTesting.expectOne('http://localhost:8080/api/v1/auth/logout-all');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.withCredentials).toBe(true);
+    req.flush({ success: true, message: 'Logged out from all devices' });
+
+    expect(service.currentUser()).toBeNull();
+    expect(service.token()).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(localStorage.getItem('accessToken')).toBeNull();
+  });
+
   it('should refresh token and update currentUser and token signals', () => {
     service.refreshToken().subscribe();
 

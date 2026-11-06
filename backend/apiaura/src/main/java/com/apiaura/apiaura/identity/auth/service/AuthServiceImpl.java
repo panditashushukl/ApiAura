@@ -337,6 +337,22 @@ public class AuthServiceImpl implements AuthService {
                 });
     }
 
+    @Override
+    @Transactional
+    public void logoutAllByRefreshToken(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            return;
+        }
+        String tokenHash = hash(rawRefreshToken);
+        refreshTokenRepository
+                .findByTokenHash(tokenHash)
+                .ifPresent(token -> {
+                    if (token.getUser() != null) {
+                        logoutAll(token.getUser().getId());
+                    }
+                });
+    }
+
     private AuthResponse createAuthResponse(
             User user
     ) {

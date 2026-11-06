@@ -47,6 +47,10 @@ export class ProfileComponent implements OnInit {
   readonly resetLinkFeedback = signal<string | null>(null);
   readonly resetLinkError = signal<string | null>(null);
 
+  // Logout All Devices State
+  readonly showLogoutAllModal = signal<boolean>(false);
+  readonly isLoggingOutAll = signal<boolean>(false);
+
   // Organisation Creation State
   readonly showCreateOrgModal = signal<boolean>(false);
   readonly newOrgName = signal<string>('');
@@ -171,6 +175,24 @@ export class ProfileComponent implements OnInit {
       error: (err) => {
         this.isSendingResetLink.set(false);
         this.resetLinkError.set(err.message || 'Failed to send reset link.');
+      },
+    });
+  }
+
+  logoutFromAllDevices(): void {
+    if (this.isLoggingOutAll()) {
+      return;
+    }
+
+    this.isLoggingOutAll.set(true);
+    this.authService.logoutAll().subscribe({
+      complete: () => {
+        this.isLoggingOutAll.set(false);
+        this.showLogoutAllModal.set(false);
+      },
+      error: () => {
+        this.isLoggingOutAll.set(false);
+        this.showLogoutAllModal.set(false);
       },
     });
   }
