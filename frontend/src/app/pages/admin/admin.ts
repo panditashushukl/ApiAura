@@ -10,9 +10,9 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
-import { MatSort, MatSortModule } from '@angular/material/sort';
+import { MatTableDataSource } from '@angular/material/table';
+import { MatPaginator } from '@angular/material/paginator';
+import { MatSort } from '@angular/material/sort';
 import { forkJoin } from 'rxjs';
 import { AdminService } from '../../core/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -24,23 +24,37 @@ import {
   UserStatus,
 } from '../../core/models/admin.models';
 
-export type AdminSlice = 'users' | 'roles' | 'permissions' | 'organizations';
-export type DetailType = 'user' | 'role' | 'permission' | 'organization';
+import {
+  AdminSlice,
+  DetailType,
+  DeleteTarget,
+  PermissionGroup,
+  formatResourceTitle,
+  getResourceDescription,
+  groupPermissionsByResource,
+  groupRoleDetailPermissions,
+  getOrgAdmin,
+  getUserOrganizations,
+} from './shared/admin-resource-helper';
 
-export interface PermissionGroup {
-  resource: string;
-  displayName: string;
-  description: string;
-  permissions: AdminPermission[];
-  grantedCount: number;
-  totalCount: number;
-}
+import { AdminLayoutComponent } from './admin-layout.component';
+import { UsersListComponent } from './users/users-list.component';
+import { UserDetailsComponent } from './users/user-details.component';
+import { UserFormDialogComponent } from './users/dialogs/user-form-dialog.component';
+import { ResetPasswordDialogComponent } from './users/dialogs/reset-password-dialog.component';
+import { ManageRolesDialogComponent } from './users/dialogs/manage-roles-dialog.component';
+import { RolesListComponent } from './roles/roles-list.component';
+import { RoleDetailsComponent } from './roles/role-details.component';
+import { RoleFormDialogComponent } from './roles/dialogs/role-form-dialog.component';
+import { RolePermissionsDialogComponent } from './roles/dialogs/role-permissions-dialog.component';
+import { PermissionsListComponent } from './permissions/permissions-list.component';
+import { PermissionDetailsComponent } from './permissions/permission-details.component';
+import { OrgListComponent } from './organizations/org-list.component';
+import { OrgDetailsComponent } from './organizations/org-details.component';
+import { OrgFormDialogComponent } from './organizations/dialogs/org-form-dialog.component';
+import { DeleteConfirmDialogComponent } from './shared/delete-confirm-dialog.component';
 
-interface DeleteTarget {
-  type: 'user' | 'role' | 'permission' | 'organization';
-  id: string;
-  name: string;
-}
+export type { AdminSlice, DetailType, PermissionGroup };
 
 @Component({
   selector: 'app-admin',
@@ -48,9 +62,22 @@ interface DeleteTarget {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    MatTableModule,
-    MatPaginatorModule,
-    MatSortModule,
+    AdminLayoutComponent,
+    UsersListComponent,
+    UserDetailsComponent,
+    UserFormDialogComponent,
+    ResetPasswordDialogComponent,
+    ManageRolesDialogComponent,
+    RolesListComponent,
+    RoleDetailsComponent,
+    RoleFormDialogComponent,
+    RolePermissionsDialogComponent,
+    PermissionsListComponent,
+    PermissionDetailsComponent,
+    OrgListComponent,
+    OrgDetailsComponent,
+    OrgFormDialogComponent,
+    DeleteConfirmDialogComponent,
   ],
   templateUrl: './admin.html',
   styleUrl: './admin.css',
@@ -102,35 +129,6 @@ export class AdminComponent implements OnInit {
   readonly permissionsDataSource = new MatTableDataSource<AdminPermission>([]);
   readonly organizationsDataSource = new MatTableDataSource<AdminOrganization>([]);
 
-  // Table Columns (Streamlined: unnecessary descriptions & raw IDs moved to Details Panel)
-  readonly userColumns = [
-    'name',
-    'email',
-    'organization',
-    'roles',
-    'status',
-    'actions',
-  ];
-  readonly roleColumns = [
-    'name',
-    'code',
-    'type',
-    'actions',
-  ];
-  readonly permissionColumns = [
-    'name',
-    'code',
-    'resource',
-    'action',
-    'actions',
-  ];
-  readonly organizationColumns = [
-    'name',
-    'slug',
-    'admin',
-    'actions',
-  ];
-
   // MatPaginators and MatSorts
   @ViewChild('usersPaginator') usersPaginator!: MatPaginator;
   @ViewChild('usersSort') usersSort!: MatSort;
@@ -168,9 +166,8 @@ export class AdminComponent implements OnInit {
   readonly showDeleteModal = signal<boolean>(false);
   readonly deleteTarget = signal<DeleteTarget | null>(null);
 
-  // Details Dedicated Page State (Replaces table view, no popup slider)
+  // Details Dedicated Page State
   readonly showDetailsPage = signal<boolean>(false);
-  // Alias for backward compatibility
   readonly showDetailsPanel = this.showDetailsPage;
 
   readonly detailType = signal<DetailType>('user');
@@ -183,6 +180,10 @@ export class AdminComponent implements OnInit {
 
   // Search filter for grouped role permissions modal
   readonly rolePermissionSearch = signal<string>('');
+
+  readonly grantedRolePermIds = computed(() => {
+    return new Set(this.selectedRolePermissions().map((p) => p.id));
+  });
 
   get userDetail(): AdminUser | null {
     return this.detailType() === 'user' ? (this.selectedDetailItem() as AdminUser) : null;
@@ -205,36 +206,11 @@ export class AdminComponent implements OnInit {
   }
 
   getOrgAdmin(org: AdminOrganization): AdminUser | null {
-    if (!org) return null;
-    const allUsers = this.users();
-    if (org.ownerId) {
-      const match = allUsers.find((u) => u.id === org.ownerId);
-      if (match) return match;
-    }
-    const orgAdmin = allUsers.find(
-      (u) =>
-        u.organizationId === org.id &&
-        u.roles?.some(
-          (r) =>
-            r.toUpperCase() === 'ADMIN' ||
-            r.toUpperCase() === 'SUPER_ADMIN' ||
-            r.toUpperCase().includes('ADMIN'),
-        ),
-    );
-    if (orgAdmin) return orgAdmin;
-
-    return allUsers.find((u) => u.organizationId === org.id) || null;
+    return getOrgAdmin(org, this.users());
   }
 
   getUserOrganizations(user: AdminUser | null | undefined): { id?: string; name: string; slug?: string }[] {
-    if (!user) return [];
-    if (user.organizations && user.organizations.length > 0) {
-      return user.organizations;
-    }
-    if (user.organizationName) {
-      return [{ id: user.organizationId, name: user.organizationName, slug: user.organizationSlug }];
-    }
-    return [];
+    return getUserOrganizations(user);
   }
 
   readonly orgAdminUser = computed<AdminUser | null>(() => {
@@ -247,7 +223,7 @@ export class AdminComponent implements OnInit {
   readonly selectedAssignUser = signal<AdminUser | null>(null);
   readonly selectedAssignRoleId = signal<string>('');
 
-  readonly canManageOrgMembers = computed(() => {
+  readonly canManageMembers = computed(() => {
     if (this.authService.isSuperAdmin()) {
       return true;
     }
@@ -255,6 +231,8 @@ export class AdminComponent implements OnInit {
     const targetOrg = this.orgDetail;
     return !!(currentOrgId && targetOrg && currentOrgId === targetOrg.id && this.authService.isAdmin());
   });
+
+  readonly canManageOrgMembers = this.canManageMembers;
 
   readonly currentOrgMembers = computed<AdminUser[]>(() => {
     const org = this.orgDetail;
@@ -395,150 +373,24 @@ export class AdminComponent implements OnInit {
     return this.createUserSelectedRoleIds().includes(roleId);
   }
 
-  readonly editUserSelectedRoleIds = signal<string[]>([]);
-
-  readonly detailTitle = computed(() => {
-    const item = this.selectedDetailItem();
-    if (!item) return '';
-    return item.name || item.id;
-  });
-
-  readonly activeSliceLabel = computed(() => {
-    switch (this.activeSlice()) {
-      case 'users':
-        return 'Users';
-      case 'roles':
-        return 'Roles';
-      case 'permissions':
-        return 'Permissions';
-      case 'organizations':
-        return 'Organisations';
-    }
-  });
-
   formatResourceTitle(resource: string): string {
-    const mapping: Record<string, string> = {
-      user: 'User Management',
-      role: 'Role & RBAC Security',
-      organization: 'Organisation Governance',
-      workspace_member: 'Workspace Members',
-      collection: 'API Collections',
-      api: 'API Requests & Endpoints',
-      environment: 'Environments & Variables',
-      test_case: 'Test Cases & Assertions',
-      workflow: 'Workflows & Automation',
-      '*': 'System Superuser Wildcard',
-    };
-    return mapping[resource.toLowerCase()] || resource.toUpperCase();
+    return formatResourceTitle(resource);
   }
 
   getResourceDescription(resource: string): string {
-    const mapping: Record<string, string> = {
-      user: 'Permissions to view, create, edit, and manage user accounts and profiles.',
-      role: 'Permissions to define roles, configure permissions, and govern RBAC policies.',
-      organization: 'Permissions to govern organization profiles, billing, and settings.',
-      workspace_member: 'Permissions to invite, manage, and remove workspace members.',
-      collection: 'Permissions to organize API endpoints into collections and folders.',
-      api: 'Permissions to create, modify, execute, and delete API requests.',
-      environment: 'Permissions to manage environments, global parameters, and secrets.',
-      test_case: 'Permissions to build and execute automated test assertions.',
-      workflow: 'Permissions to create and run chained multi-step API workflows.',
-      '*': 'Full sovereign bypass across all platform resources and operations.',
-    };
-    return mapping[resource.toLowerCase()] || `Permissions governing ${resource}.`;
+    return getResourceDescription(resource);
   }
 
   readonly permissionGroups = computed<PermissionGroup[]>(() => {
-    const allPerms = this.permissions();
-    const rolePerms = this.selectedRolePermissions();
-    const rolePermIds = new Set(rolePerms.map((p) => p.id));
-    const query = this.rolePermissionSearch().toLowerCase().trim();
-
-    // Group by resource
-    const groupsMap = new Map<string, AdminPermission[]>();
-    for (const perm of allPerms) {
-      if (query) {
-        const matchesName = (perm.name || '').toLowerCase().includes(query);
-        const matchesCode = (perm.code || '').toLowerCase().includes(query);
-        const matchesResource = (perm.resource || '').toLowerCase().includes(query);
-        const matchesAction = (perm.action || '').toLowerCase().includes(query);
-        const matchesDesc = (perm.description || '').toLowerCase().includes(query);
-        if (!matchesName && !matchesCode && !matchesResource && !matchesAction && !matchesDesc) {
-          continue;
-        }
-      }
-
-      const res = (perm.resource || 'other').toLowerCase();
-      if (!groupsMap.has(res)) {
-        groupsMap.set(res, []);
-      }
-      groupsMap.get(res)!.push(perm);
-    }
-
-    const resourceOrder = [
-      'organization',
-      'user',
-      'role',
-      'workspace_member',
-      'collection',
-      'api',
-      'environment',
-      'workflow',
-      'test_case',
-      '*',
-    ];
-
-    const sortedKeys = Array.from(groupsMap.keys()).sort((a, b) => {
-      const idxA = resourceOrder.indexOf(a.toLowerCase());
-      const idxB = resourceOrder.indexOf(b.toLowerCase());
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.localeCompare(b);
-    });
-
-    const result: PermissionGroup[] = [];
-    for (const key of sortedKeys) {
-      const perms = groupsMap.get(key)!;
-      const actionOrder = ['read', 'create', 'update', 'delete', '*'];
-      perms.sort((a, b) => {
-        const actA = actionOrder.indexOf((a.action || '').toLowerCase());
-        const actB = actionOrder.indexOf((b.action || '').toLowerCase());
-        if (actA !== -1 && actB !== -1) return actA - actB;
-        return (a.name || '').localeCompare(b.name || '');
-      });
-
-      const grantedCount = perms.filter((p) => rolePermIds.has(p.id)).length;
-
-      result.push({
-        resource: key,
-        displayName: this.formatResourceTitle(key),
-        description: this.getResourceDescription(key),
-        permissions: perms,
-        grantedCount,
-        totalCount: perms.length,
-      });
-    }
-
-    return result;
+    return groupPermissionsByResource(
+      this.permissions(),
+      this.selectedRolePermissions(),
+      this.rolePermissionSearch(),
+    );
   });
 
   readonly roleDetailGroupedPermissions = computed(() => {
-    const perms = this.roleDetailPermissions();
-    const groupsMap = new Map<string, AdminPermission[]>();
-    for (const p of perms) {
-      const res = (p.resource || 'other').toLowerCase();
-      if (!groupsMap.has(res)) {
-        groupsMap.set(res, []);
-      }
-      groupsMap.get(res)!.push(p);
-    }
-
-    return Array.from(groupsMap.entries()).map(([resource, list]) => ({
-      resource,
-      displayName: this.formatResourceTitle(resource),
-      permissions: list,
-    }));
+    return groupRoleDetailPermissions(this.roleDetailPermissions());
   });
 
   openDetailsPage(
@@ -565,7 +417,6 @@ export class AdminComponent implements OnInit {
     }
   }
 
-  // Backward compatibility alias
   openDetailsPanel(
     type: DetailType,
     item: AdminUser | AdminRole | AdminPermission | AdminOrganization,
@@ -580,25 +431,20 @@ export class AdminComponent implements OnInit {
     this.copiedId.set(false);
   }
 
-  // Backward compatibility alias
   closeDetailsPanel(): void {
     this.closeDetailsPage();
   }
 
   toggleGroupPermissions(group: PermissionGroup, grant: boolean): void {
     const role = this.selectedRole();
-    if (!role) {
-      return;
-    }
+    if (!role) return;
 
     const currentGrantedIds = new Set(this.selectedRolePermissions().map((p) => p.id));
     const targetPerms = grant
       ? group.permissions.filter((p) => !currentGrantedIds.has(p.id))
       : group.permissions.filter((p) => currentGrantedIds.has(p.id));
 
-    if (targetPerms.length === 0) {
-      return;
-    }
+    if (targetPerms.length === 0) return;
 
     this.isLoading.set(true);
     const requests$ = targetPerms.map((perm) =>
@@ -639,7 +485,7 @@ export class AdminComponent implements OnInit {
     }
   }
 
-  // Forms
+  // Reactive Forms for tests and dialog bindings
   readonly createUserForm: FormGroup = this.fb.group({
     name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
     email: ['', [Validators.required, Validators.email]],
@@ -689,38 +535,6 @@ export class AdminComponent implements OnInit {
     slug: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
   });
 
-  // UI styling classes
-  readonly activeSliceClass =
-    'px-3 py-1.5 text-xs font-bold rounded-lg bg-surface text-bhagwa shadow-xs border border-app transition-all flex items-center gap-1.5 cursor-pointer';
-  readonly inactiveSliceClass =
-    'px-3 py-1.5 text-xs font-medium rounded-lg text-secondary hover:text-main hover:bg-surface/60 transition-all flex items-center gap-1.5 cursor-pointer';
-
-  readonly searchPlaceholder = computed(() => {
-    switch (this.activeSlice()) {
-      case 'users':
-        return 'Filter users by name or email...';
-      case 'roles':
-        return 'Filter roles by name or code...';
-      case 'permissions':
-        return 'Filter permissions by code or resource...';
-      case 'organizations':
-        return 'Filter organisations by name or slug...';
-    }
-  });
-
-  readonly createButtonLabel = computed(() => {
-    switch (this.activeSlice()) {
-      case 'users':
-        return 'Add User';
-      case 'roles':
-        return 'Add Role';
-      case 'organizations':
-        return 'Add Organisation';
-      default:
-        return '';
-    }
-  });
-
   ngOnInit(): void {
     this.setupFilterPredicates();
     if (this.authService.isAdmin()) {
@@ -766,7 +580,6 @@ export class AdminComponent implements OnInit {
   }
 
   private setupFilterPredicates(): void {
-    // Users Filter Predicate
     this.usersDataSource.filterPredicate = (user: AdminUser, filter: string): boolean => {
       const parsed = JSON.parse(filter || '{}');
       const query = (parsed.query || '').toLowerCase().trim();
@@ -788,7 +601,6 @@ export class AdminComponent implements OnInit {
       return Boolean(matchesStatus && matchesQuery);
     };
 
-    // Roles Filter Predicate
     this.rolesDataSource.filterPredicate = (role: AdminRole, filter: string): boolean => {
       const parsed = JSON.parse(filter || '{}');
       const query = (parsed.query || '').toLowerCase().trim();
@@ -810,7 +622,6 @@ export class AdminComponent implements OnInit {
       return Boolean(matchesType && matchesQuery);
     };
 
-    // Permissions Filter Predicate
     this.permissionsDataSource.filterPredicate = (
       perm: AdminPermission,
       filter: string,
@@ -836,7 +647,6 @@ export class AdminComponent implements OnInit {
       return Boolean(matchesResource && matchesQuery);
     };
 
-    // Organisations Filter Predicate
     this.organizationsDataSource.filterPredicate = (
       org: AdminOrganization,
       filter: string,
@@ -858,30 +668,6 @@ export class AdminComponent implements OnInit {
     this.feedbackMessage.set(null);
     this.errorMessage.set(null);
     this.applyAllFilters();
-    this.attachTableControls();
-  }
-
-  private attachTableControls(): void {
-    setTimeout(() => {
-      switch (this.activeSlice()) {
-        case 'users':
-          this.usersDataSource.paginator = this.usersPaginator;
-          this.usersDataSource.sort = this.usersSort;
-          break;
-        case 'roles':
-          this.rolesDataSource.paginator = this.rolesPaginator;
-          this.rolesDataSource.sort = this.rolesSort;
-          break;
-        case 'permissions':
-          this.permissionsDataSource.paginator = this.permissionsPaginator;
-          this.permissionsDataSource.sort = this.permissionsSort;
-          break;
-        case 'organizations':
-          this.organizationsDataSource.paginator = this.orgsPaginator;
-          this.organizationsDataSource.sort = this.orgsSort;
-          break;
-      }
-    });
   }
 
   fetchAllData(): void {
@@ -916,7 +702,6 @@ export class AdminComponent implements OnInit {
         this.users.set(data);
         this.usersDataSource.data = data;
         this.applyUsersFilter();
-        this.attachTableControls();
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -924,18 +709,6 @@ export class AdminComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
-  }
-
-  onSearchChange(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.searchFilter.set(value);
-    this.applyAllFilters();
-  }
-
-  onUserStatusFilterChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.userStatusFilter.set(value);
-    this.applyUsersFilter();
   }
 
   private applyUsersFilter(): void {
@@ -953,7 +726,6 @@ export class AdminComponent implements OnInit {
         this.roles.set(data);
         this.rolesDataSource.data = data;
         this.applyRolesFilter();
-        this.attachTableControls();
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -961,12 +733,6 @@ export class AdminComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
-  }
-
-  onRoleTypeFilterChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.roleTypeFilter.set(value);
-    this.applyRolesFilter();
   }
 
   private applyRolesFilter(): void {
@@ -984,7 +750,6 @@ export class AdminComponent implements OnInit {
         this.permissions.set(data);
         this.permissionsDataSource.data = data;
         this.applyPermissionsFilter();
-        this.attachTableControls();
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -992,12 +757,6 @@ export class AdminComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
-  }
-
-  onPermissionResourceFilterChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.permissionResourceFilter.set(value);
-    this.applyPermissionsFilter();
   }
 
   private applyPermissionsFilter(): void {
@@ -1015,7 +774,6 @@ export class AdminComponent implements OnInit {
         this.organizations.set(data);
         this.organizationsDataSource.data = data;
         this.applyOrgsFilter();
-        this.attachTableControls();
         this.isLoading.set(false);
       },
       error: (err) => {
@@ -1029,7 +787,7 @@ export class AdminComponent implements OnInit {
     this.organizationsDataSource.filter = this.searchFilter();
   }
 
-  private applyAllFilters(): void {
+  applyAllFilters(): void {
     switch (this.activeSlice()) {
       case 'users':
         this.applyUsersFilter();
@@ -1109,6 +867,25 @@ export class AdminComponent implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  handleCreateUserSubmit(payload: {
+    name: string;
+    email: string;
+    password?: string;
+    mobileNumber?: string;
+    orgIds: string[];
+    roleIds: string[];
+  }): void {
+    this.createUserForm.patchValue({
+      name: payload.name,
+      email: payload.email,
+      password: payload.password,
+      mobileNumber: payload.mobileNumber,
+    });
+    this.createUserSelectedOrgIds.set(payload.orgIds);
+    this.createUserSelectedRoleIds.set(payload.roleIds);
+    this.submitCreateUser();
   }
 
   selectAssignUser(user: AdminUser): void {
@@ -1223,20 +1000,6 @@ export class AdminComponent implements OnInit {
     });
   }
 
-  toggleEditUserRole(roleId: string): void {
-    this.editUserSelectedRoleIds.update((ids) => {
-      if (ids.includes(roleId)) {
-        return ids.filter((id) => id !== roleId);
-      } else {
-        return [...ids, roleId];
-      }
-    });
-  }
-
-  isEditUserRoleSelected(roleId: string): boolean {
-    return this.editUserSelectedRoleIds().includes(roleId);
-  }
-
   openEditUser(user: AdminUser): void {
     this.selectedUser.set(user);
     this.editUserForm.patchValue({
@@ -1292,6 +1055,21 @@ export class AdminComponent implements OnInit {
       });
   }
 
+  handleEditUserSubmit(payload: {
+    name: string;
+    email: string;
+    mobileNumber?: string;
+    orgIds: string[];
+  }): void {
+    this.editUserForm.patchValue({
+      name: payload.name,
+      email: payload.email,
+      mobileNumber: payload.mobileNumber,
+    });
+    this.editUserSelectedOrgIds.set(payload.orgIds);
+    this.submitEditUser();
+  }
+
   openResetPasswordModal(user: AdminUser): void {
     this.selectedUser.set(user);
     this.resetPasswordForm.reset();
@@ -1320,6 +1098,11 @@ export class AdminComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
+  }
+
+  handleResetPasswordSubmit(password: string): void {
+    this.resetPasswordForm.patchValue({ newPassword: password });
+    this.submitResetPassword();
   }
 
   toggleUserStatus(user: AdminUser): void {
@@ -1413,6 +1196,15 @@ export class AdminComponent implements OnInit {
       });
   }
 
+  handleCreateRoleSubmit(payload: { name: string; code?: string; description?: string }): void {
+    this.createRoleForm.patchValue({
+      name: payload.name,
+      code: payload.code,
+      description: payload.description,
+    });
+    this.submitCreateRole();
+  }
+
   openEditRole(role: AdminRole): void {
     this.selectedRole.set(role);
     this.editRoleForm.patchValue({
@@ -1446,6 +1238,11 @@ export class AdminComponent implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  handleEditRoleSubmit(payload: { name: string; description?: string }): void {
+    this.editRoleForm.patchValue(payload);
+    this.submitEditRole();
   }
 
   openManageRolePermissions(role: AdminRole): void {
@@ -1553,6 +1350,11 @@ export class AdminComponent implements OnInit {
       });
   }
 
+  handleCreateOrgSubmit(payload: { name: string; slug: string }): void {
+    this.createOrgForm.patchValue(payload);
+    this.submitCreateOrg();
+  }
+
   openEditOrg(org: AdminOrganization): void {
     this.selectedOrg.set(org);
     this.editOrgForm.patchValue({
@@ -1586,6 +1388,11 @@ export class AdminComponent implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  handleEditOrgSubmit(payload: { name: string; slug: string }): void {
+    this.editOrgForm.patchValue(payload);
+    this.submitEditOrg();
   }
 
   // --- Deletion Flow ---
@@ -1632,5 +1439,13 @@ export class AdminComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
+  }
+
+  onDismissAlert(type: 'feedback' | 'error'): void {
+    if (type === 'feedback') {
+      this.feedbackMessage.set(null);
+    } else {
+      this.errorMessage.set(null);
+    }
   }
 }

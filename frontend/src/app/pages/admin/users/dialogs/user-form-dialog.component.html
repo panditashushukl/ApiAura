@@ -1,0 +1,163 @@
+@if (isOpen()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+    role="dialog"
+    aria-modal="true"
+    (keydown.escape)="cancelled.emit()"
+  >
+    <div
+      class="bg-surface border border-app rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] text-main animate-scale-in"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-app flex items-center justify-between shrink-0">
+        <div>
+          <h3 class="text-base font-bold text-main">
+            {{ isEdit() ? 'Edit User Profile' : 'Create New User' }}
+          </h3>
+          <p class="text-xs text-muted">
+            {{ isEdit() ? 'Update account details and organization assignments.' : 'Provision a new identity with assigned roles and organizations.' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          (click)="cancelled.emit()"
+          class="p-1.5 rounded-lg text-muted hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex-1 overflow-y-auto p-6 space-y-5">
+        <!-- Basic Information -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Full Name *</label>
+            <input
+              type="text"
+              formControlName="name"
+              placeholder="e.g. Rahul Sharma"
+              class="w-full px-3 py-2 text-xs rounded-xl bg-subtle border border-app text-main placeholder-muted focus:outline-none focus:border-bhagwa-500 focus:ring-1 focus:ring-bhagwa-500/30 transition-all"
+            />
+            @if (form.get('name')?.touched && form.get('name')?.invalid) {
+              <p class="text-[11px] text-rose-500 mt-1">Full name is required (2–100 chars).</p>
+            }
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Email Address *</label>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="name@domain.com"
+              class="w-full px-3 py-2 text-xs rounded-xl bg-subtle border border-app text-main placeholder-muted focus:outline-none focus:border-bhagwa-500 focus:ring-1 focus:ring-bhagwa-500/30 transition-all"
+            />
+            @if (form.get('email')?.touched && form.get('email')?.invalid) {
+              <p class="text-[11px] text-rose-500 mt-1">A valid email address is required.</p>
+            }
+          </div>
+
+          @if (!isEdit()) {
+            <div>
+              <label class="block text-xs font-semibold text-secondary mb-1">Temporary Password *</label>
+              <div class="relative">
+                <input
+                  [type]="showPassword() ? 'text' : 'password'"
+                  formControlName="password"
+                  placeholder="Minimum 6 characters"
+                  class="w-full px-3 py-2 text-xs rounded-xl bg-subtle border border-app text-main placeholder-muted focus:outline-none focus:border-bhagwa-500 focus:ring-1 focus:ring-bhagwa-500/30 transition-all pr-8"
+                />
+                <button
+                  type="button"
+                  (click)="showPassword.set(!showPassword())"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-main cursor-pointer"
+                >
+                  @if (showPassword()) {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+                    </svg>
+                  } @else {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  }
+                </button>
+              </div>
+              @if (form.get('password')?.touched && form.get('password')?.invalid) {
+                <p class="text-[11px] text-rose-500 mt-1">Password must be at least 6 characters.</p>
+              }
+            </div>
+          }
+
+          <div>
+            <label class="block text-xs font-semibold text-secondary mb-1">Mobile Number (Optional)</label>
+            <input
+              type="tel"
+              formControlName="mobileNumber"
+              placeholder="+91 98765 43210"
+              class="w-full px-3 py-2 text-xs rounded-xl bg-subtle border border-app text-main placeholder-muted focus:outline-none focus:border-bhagwa-500 focus:ring-1 focus:ring-bhagwa-500/30 transition-all"
+            />
+          </div>
+        </div>
+
+        <!-- Assignments Section -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-app">
+          <!-- Organizations Picker -->
+          <app-multi-select-chip-picker
+            title="Assigned Organisations"
+            placeholder="Search organisations..."
+            [items]="availableOrgs()"
+            [(selectedIds)]="selectedOrgIds"
+          />
+
+          <!-- Roles Picker (Create mode only) -->
+          @if (!isEdit()) {
+            <app-multi-select-chip-picker
+              title="Assigned Roles"
+              placeholder="Search roles..."
+              [items]="availableRoles()"
+              [(selectedIds)]="selectedRoleIds"
+            />
+          } @else {
+            <div class="p-4 bg-subtle/40 border border-app rounded-xl flex flex-col justify-center">
+              <span class="text-xs font-semibold text-main mb-1">Role Governance</span>
+              <p class="text-[11px] text-muted leading-relaxed">
+                Roles are managed independently using the dedicated role manager button in the user row or details view.
+              </p>
+            </div>
+          }
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-app">
+          <button
+            type="button"
+            (click)="cancelled.emit()"
+            [disabled]="isLoading()"
+            class="px-4 py-2 text-xs font-semibold rounded-xl text-secondary hover:text-main hover:bg-subtle transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            [disabled]="isLoading() || form.invalid"
+            class="px-5 py-2 text-xs font-semibold rounded-xl bg-bhagwa-600 hover:bg-bhagwa-700 text-white shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            @if (isLoading()) {
+              <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+            }
+            <span>{{ isEdit() ? 'Save Changes' : 'Create User' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+

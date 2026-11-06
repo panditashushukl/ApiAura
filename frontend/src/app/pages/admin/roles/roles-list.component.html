@@ -1,0 +1,113 @@
+<div class="flex-1 overflow-x-auto">
+  <table mat-table [dataSource]="dataSource()" matSort class="w-full">
+    <!-- Name Column -->
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Role Name</th>
+      <td mat-cell *matCellDef="let role">
+        <div class="py-1">
+          <p class="font-semibold text-main text-xs">{{ role.name }}</p>
+          @if (role.description) {
+            <p class="text-[11px] text-muted truncate max-w-xs">{{ role.description }}</p>
+          }
+        </div>
+      </td>
+    </ng-container>
+
+    <!-- Code Column -->
+    <ng-container matColumnDef="code">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th>
+      <td mat-cell *matCellDef="let role">
+        <span class="font-mono text-xs text-secondary font-medium px-2 py-0.5 rounded-md bg-subtle border border-app">
+          {{ role.code }}
+        </span>
+      </td>
+    </ng-container>
+
+    <!-- Type Column -->
+    <ng-container matColumnDef="type">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
+      <td mat-cell *matCellDef="let role">
+        <span
+          class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border"
+          [class.bg-bhagwa-500/10]="role.systemRole"
+          [class.text-bhagwa]="role.systemRole"
+          [class.border-bhagwa-500/20]="role.systemRole"
+          [class.bg-subtle]="!role.systemRole"
+          [class.text-secondary]="!role.systemRole"
+          [class.border-app]="!role.systemRole"
+        >
+          {{ role.systemRole ? 'System' : 'Custom' }}
+        </span>
+      </td>
+    </ng-container>
+
+    <!-- Actions Column -->
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+      <td mat-cell *matCellDef="let role" class="text-right whitespace-nowrap">
+        <div class="inline-flex items-center gap-1">
+          <!-- View Details -->
+          <button
+            type="button"
+            (click)="viewDetails.emit(role)"
+            title="View Details"
+            class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+            [attr.id]="'btn-view-role-' + role.id"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+
+          <!-- Manage Permissions -->
+          <button
+            type="button"
+            (click)="managePermissions.emit(role)"
+            title="Manage Permissions"
+            class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </button>
+
+          <!-- Edit Role -->
+          <button
+            type="button"
+            (click)="editRole.emit(role)"
+            title="Edit Role"
+            class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+
+          <!-- Delete Role -->
+          @if (!role.systemRole) {
+            <button
+              type="button"
+              (click)="deleteRole.emit(role)"
+              title="Delete Role"
+              class="p-1.5 rounded-lg text-secondary hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          }
+        </div>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns();" class="hover:bg-subtle/50 transition-colors"></tr>
+  </table>
+</div>
+<mat-paginator
+  [pageSizeOptions]="[10, 25, 50]"
+  showFirstLastButtons
+  class="border-t border-app"
+></mat-paginator>
+
