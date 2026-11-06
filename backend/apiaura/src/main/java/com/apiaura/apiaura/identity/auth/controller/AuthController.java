@@ -1,9 +1,11 @@
 package com.apiaura.apiaura.identity.auth.controller;
 
 import com.apiaura.apiaura.foundation.common.exception.UnauthorizedException;
+import com.apiaura.apiaura.identity.auth.dto.request.ForgotPasswordRequest;
 import com.apiaura.apiaura.identity.auth.dto.request.LoginRequest;
 import com.apiaura.apiaura.identity.auth.dto.request.RefreshTokenRequest;
 import com.apiaura.apiaura.identity.auth.dto.request.RegisterRequest;
+import com.apiaura.apiaura.identity.auth.dto.request.ResetPasswordRequest;
 import com.apiaura.apiaura.identity.auth.dto.response.AuthResponse;
 import com.apiaura.apiaura.identity.auth.service.AuthService;
 import com.apiaura.apiaura.foundation.common.response.ApiResponse;
@@ -123,6 +125,26 @@ public class AuthController {
 
         return ApiResponse.success(
                 "Logged out from all devices"
+        );
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authService.forgotPassword(request);
+        return ApiResponse.success(
+                "If an account with this email exists, a password reset link has been dispatched."
+        );
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPassword(request);
+        return ApiResponse.success(
+                "Password reset successfully. You can now log in with your new password."
         );
     }
 

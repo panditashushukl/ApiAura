@@ -128,6 +128,18 @@ describe('AdminComponent', () => {
       createOrganization: () => of(mockOrgs[0]),
       updateOrganization: () => of(mockOrgs[0]),
       deleteOrganization: () => of(void 0),
+      getOrganizationInvitations: () => of([]),
+      createOrganizationInvitation: () =>
+        of({
+          id: 'inv-1',
+          email: 'colleague@aura.io',
+          roleCode: 'MEMBER',
+          status: 'PENDING',
+          organizationId: 'o-1',
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date().toISOString(),
+        }),
+      cancelOrganizationInvitation: () => of(void 0),
     };
 
     await TestBed.configureTestingModule({
@@ -764,5 +776,46 @@ describe('AdminComponent', () => {
     expect(compiled.textContent).toContain('Acme Software Corp');
     expect(compiled.textContent).toContain('Company');
     expect(compiled.textContent).toContain('comp');
+  });
+
+  it('should load invitations when opening organization details and handle sending & cancelling invitations', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const org = mockOrgs[0];
+
+    const getInvitesSpy = vi.spyOn(adminService, 'getOrganizationInvitations').mockReturnValue(
+      of([
+        {
+          id: 'inv-existing',
+          email: 'existing@aura.io',
+          status: 'PENDING',
+          organizationId: org.id,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date().toISOString(),
+        },
+      ]),
+    );
+
+    comp.openDetailsPage('organization', org);
+    expect(getInvitesSpy).toHaveBeenCalledWith(org.id);
+    expect(comp.orgInvitations().length).toBe(1);
+    expect(comp.orgInvitations()[0].email).toBe('existing@aura.io');
+
+    const createInviteSpy = vi.spyOn(adminService, 'createOrganizationInvitation');
+    comp.handleSendOrgInvitation({ email: 'newcolleague@aura.io', roleCode: 'MEMBER' });
+    expect(createInviteSpy).toHaveBeenCalledWith(org.id, {
+      email: 'newcolleague@aura.io',
+      roleCode: 'MEMBER',
+    });
+    expect(comp.orgInvitations().length).toBe(2);
+    expect(comp.feedbackMessage()).toBe('Invitation sent to newcolleague@aura.io');
+
+    const cancelInviteSpy = vi.spyOn(adminService, 'cancelOrganizationInvitation');
+    comp.handleCancelOrgInvitation('inv-existing');
+    expect(cancelInviteSpy).toHaveBeenCalledWith(org.id, 'inv-existing');
+    expect(comp.orgInvitations().some((i) => i.id === 'inv-existing')).toBe(false);
+    expect(comp.feedbackMessage()).toBe('Invitation canceled successfully');
   });
 });

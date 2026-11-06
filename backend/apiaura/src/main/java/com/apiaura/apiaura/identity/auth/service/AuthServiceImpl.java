@@ -45,6 +45,12 @@ import com.apiaura.apiaura.api.request.entity.ApiRequest;
 import com.apiaura.apiaura.foundation.common.enums.WorkspaceStatus;
 import com.apiaura.apiaura.foundation.common.enums.HttpMethod;
 import com.apiaura.apiaura.foundation.common.enums.BodyType;
+import com.apiaura.apiaura.identity.auth.dto.request.ForgotPasswordRequest;
+import com.apiaura.apiaura.identity.auth.dto.request.ResetPasswordRequest;
+import com.apiaura.apiaura.identity.auth.entity.PasswordResetToken;
+import com.apiaura.apiaura.identity.auth.repository.PasswordResetTokenRepository;
+import com.apiaura.apiaura.foundation.email.EmailService;
+import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 @Service
@@ -64,6 +70,11 @@ public class AuthServiceImpl implements AuthService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final CollectionRepository collectionRepository;
     private final ApiRequestRepository apiRequestRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
+
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendBaseUrl = "http://localhost:4200";
 
     @Override
     @Transactional
@@ -390,5 +401,70 @@ public class AuthServiceImpl implements AuthService {
                     exception
             );
         }
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        java.util.Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            log.info("Password reset requested for non-existent email: {}", email);
+            return;
+        }
+
+        User user = userOpt.get();
+        List<PasswordResetToken> activeTokens =
+                passwordResetTokenRepository.findAllByUserAndUsedAtIsNull(user);
+        for (PasswordResetToken t : activeTokens) {
+            t.setUsedAt(Instant.now());
+        }
+        passwordResetTokenRepository.saveAll(activeTokens);
+
+        String rawToken = generateRefreshToken();
+        String tokenHash = hash(rawToken);
+        Instant expiresAt = Instant.now().plus(java.time.Duration.ofHours(1));
+
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .user(user)
+                .tokenHash(tokenHash)
+                .expiresAt(expiresAt)
+                .createdAt(Instant.now())
+                .build();
+
+        passwordResetTokenRepository.save(resetToken);
+
+        String base = (frontendBaseUrl != null && frontendBaseUrl.endsWith("/"))
+                ? frontendBaseUrl.substring(0, frontendBaseUrl.length() - 1)
+                : (frontendBaseUrl != null ? frontendBaseUrl : "http://localhost:4200");
+        String resetUrl = base + "/reset-password?token=" + rawToken;
+
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), resetUrl, expiresAt);
+        log.info("Secure password reset token generated and dispatched for user {}", user.getEmail());
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String rawToken = request.getToken().trim();
+        String tokenHash = hash(rawToken);
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired password reset link"));
+
+        if (resetToken.isUsed() || resetToken.isExpired()) {
+            throw new BadRequestException("This password reset link has already been used or has expired. Please request a new one.");
+        }
+
+        User user = resetToken.getUser();
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsedAt(Instant.now());
+        passwordResetTokenRepository.save(resetToken);
+
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        log.info("Password successfully reset and sessions invalidated for user {}", user.getEmail());
     }
 }

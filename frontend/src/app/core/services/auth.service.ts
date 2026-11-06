@@ -312,6 +312,52 @@ export class AuthService {
       );
   }
 
+  forgotPassword(email: string): Observable<string> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    return this.http
+      .post<ApiResponse<void>>(
+        `${this.baseUrl}${this.endpoint}/forgot-password`,
+        { email },
+        { withCredentials: true },
+      )
+      .pipe(
+        map((response) => response.message || 'If an account with this email exists, a password reset link has been dispatched.'),
+        catchError((error: HttpErrorResponse) => {
+          const message = this.extractErrorMessage(error, 'Failed to process password reset request.');
+          this.errorMessage.set(message);
+          return throwError(() => new Error(message));
+        }),
+        finalize(() => {
+          this.isLoading.set(false);
+        }),
+      );
+  }
+
+  resetPassword(payload: { token: string; newPassword: string }): Observable<string> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    return this.http
+      .post<ApiResponse<void>>(
+        `${this.baseUrl}${this.endpoint}/reset-password`,
+        payload,
+        { withCredentials: true },
+      )
+      .pipe(
+        map((response) => response.message || 'Password reset successfully. You can now log in with your new password.'),
+        catchError((error: HttpErrorResponse) => {
+          const message = this.extractErrorMessage(error, 'Failed to reset password.');
+          this.errorMessage.set(message);
+          return throwError(() => new Error(message));
+        }),
+        finalize(() => {
+          this.isLoading.set(false);
+        }),
+      );
+  }
+
   private handleAuthSuccess(data: AuthResponseData): void {
     this.currentUser.set(data.user);
     this.token.set(data.accessToken);

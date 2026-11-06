@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type AuthMode = 'login' | 'register';
+export type AuthMode = 'login' | 'register' | 'forgot-password';
 
 @Injectable({
   providedIn: 'root',
@@ -16,6 +16,11 @@ export class AuthModalService {
 
   openRegister(): void {
     this.mode.set('register');
+    this.isOpen.set(true);
+  }
+
+  openForgotPassword(): void {
+    this.mode.set('forgot-password');
     this.isOpen.set(true);
   }
 

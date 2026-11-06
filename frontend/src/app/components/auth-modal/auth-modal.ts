@@ -31,6 +31,10 @@ export class AuthModalComponent {
   showPassword = signal(false);
   showConfirmPassword = signal(false);
 
+  // Forgot password feedback
+  forgotPasswordSent = signal(false);
+  forgotPasswordMessage = signal<string | null>(null);
+
   // Validation: Check if passwords match in register mode
   readonly passwordsMismatch = computed(() => {
     return (
@@ -58,12 +62,16 @@ export class AuthModalComponent {
   switchMode(targetMode: AuthMode): void {
     this.authModalService.setMode(targetMode);
     this.authService.errorMessage.set(null);
+    this.forgotPasswordSent.set(false);
+    this.forgotPasswordMessage.set(null);
     this.resetVisibility();
   }
 
   close(): void {
     this.authModalService.close();
     this.authService.errorMessage.set(null);
+    this.forgotPasswordSent.set(false);
+    this.forgotPasswordMessage.set(null);
     this.resetVisibility();
   }
 
@@ -78,11 +86,29 @@ export class AuthModalComponent {
     this.phoneNumber.set('');
     this.password.set('');
     this.confirmPassword.set('');
+    this.forgotPasswordSent.set(false);
+    this.forgotPasswordMessage.set(null);
     this.resetVisibility();
   }
 
   onSubmit(): void {
     if (this.isLoading()) {
+      return;
+    }
+
+    if (this.mode() === 'forgot-password') {
+      if (!this.email()) {
+        return;
+      }
+      this.authService.forgotPassword(this.email()).subscribe({
+        next: (msg) => {
+          this.forgotPasswordSent.set(true);
+          this.forgotPasswordMessage.set(msg);
+        },
+        error: () => {
+          // Error message set in authService.errorMessage
+        },
+      });
       return;
     }
 

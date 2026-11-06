@@ -12,6 +12,8 @@ import {
   CreatePermissionPayload,
   CreateRolePayload,
   CreateUserPayload,
+  CreateInvitationPayload,
+  OrganizationInvitation,
   UpdateOrganizationPayload,
   UpdateRolePayload,
   UpdateUserPayload,
@@ -244,6 +246,47 @@ export class AdminService {
         withCredentials: true,
       })
       .pipe(map(() => void 0));
+  }
+
+  createOrganizationInvitation(
+    orgId: string,
+    payload: CreateInvitationPayload,
+  ): Observable<OrganizationInvitation> {
+    return this.http
+      .post<ApiResponse<OrganizationInvitation>>(
+        `${this.baseUrl}/organizations/${orgId}/invitations`,
+        payload,
+        { withCredentials: true },
+      )
+      .pipe(map((res) => res.data));
+  }
+
+  getOrganizationInvitations(
+    orgId: string,
+    status?: string,
+  ): Observable<OrganizationInvitation[]> {
+    const params: Record<string, string> = {};
+    if (status) {
+      params['status'] = status;
+    }
+    return this.http
+      .get<ApiResponse<OrganizationInvitation[]>>(
+        `${this.baseUrl}/organizations/${orgId}/invitations`,
+        { params, withCredentials: true },
+      )
+      .pipe(map((res) => res.data || []));
+  }
+
+  cancelOrganizationInvitation(
+    orgId: string,
+    invitationId: string,
+  ): Observable<OrganizationInvitation> {
+    return this.http
+      .delete<ApiResponse<OrganizationInvitation>>(
+        `${this.baseUrl}/organizations/${orgId}/invitations/${invitationId}`,
+        { withCredentials: true },
+      )
+      .pipe(map((res) => res.data));
   }
 }
 

@@ -21,6 +21,7 @@ import {
   AdminPermission,
   AdminRole,
   AdminUser,
+  OrganizationInvitation,
   UserStatus,
 } from '../../core/models/admin.models';
 
@@ -175,6 +176,7 @@ export class AdminComponent implements OnInit {
     AdminUser | AdminRole | AdminPermission | AdminOrganization | null
   >(null);
   readonly roleDetailPermissions = signal<AdminPermission[]>([]);
+  readonly orgInvitations = signal<OrganizationInvitation[]>([]);
   readonly isDetailLoading = signal<boolean>(false);
   readonly copiedId = signal<boolean>(false);
 
@@ -415,6 +417,10 @@ export class AdminComponent implements OnInit {
         },
       });
     }
+
+    if (type === 'organization') {
+      this.loadOrgInvitations(item.id);
+    }
   }
 
   openDetailsPanel(
@@ -428,6 +434,7 @@ export class AdminComponent implements OnInit {
     this.showDetailsPage.set(false);
     this.selectedDetailItem.set(null);
     this.roleDetailPermissions.set([]);
+    this.orgInvitations.set([]);
     this.copiedId.set(false);
   }
 
@@ -573,6 +580,7 @@ export class AdminComponent implements OnInit {
     this.showDetailsPanel.set(false);
     this.selectedDetailItem.set(null);
     this.roleDetailPermissions.set([]);
+    this.orgInvitations.set([]);
     this.copiedId.set(false);
     this.rolePermissionSearch.set('');
     this.feedbackMessage.set(null);
@@ -995,6 +1003,53 @@ export class AdminComponent implements OnInit {
       },
       error: (err) => {
         this.errorMessage.set(err?.error?.message || `Failed to update role for ${user.name}`);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  loadOrgInvitations(orgId: string): void {
+    this.adminService.getOrganizationInvitations(orgId).subscribe({
+      next: (invites) => {
+        this.orgInvitations.set(invites || []);
+      },
+      error: () => {
+        this.orgInvitations.set([]);
+      },
+    });
+  }
+
+  handleSendOrgInvitation(payload: { email: string; roleId?: string; roleCode?: string }): void {
+    const org = this.orgDetail;
+    if (!org) return;
+
+    this.isLoading.set(true);
+    this.adminService.createOrganizationInvitation(org.id, payload).subscribe({
+      next: (invitation) => {
+        this.orgInvitations.update((list) => [invitation, ...list]);
+        this.feedbackMessage.set(`Invitation sent to ${payload.email}`);
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || `Failed to send invitation to ${payload.email}`);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  handleCancelOrgInvitation(invitationId: string): void {
+    const org = this.orgDetail;
+    if (!org) return;
+
+    this.isLoading.set(true);
+    this.adminService.cancelOrganizationInvitation(org.id, invitationId).subscribe({
+      next: () => {
+        this.orgInvitations.update((list) => list.filter((inv) => inv.id !== invitationId));
+        this.feedbackMessage.set('Invitation canceled successfully');
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || 'Failed to cancel invitation');
         this.isLoading.set(false);
       },
     });

@@ -22,5 +22,19 @@ public interface EmailService {
             String inviteUrl,
             Instant expiresAt
     );
-}
 
+    /**
+     * Sends a password reset email with a secure link.
+     *
+     * @param toEmail   Recipient email address
+     * @param userName  Display name of the user
+     * @param resetUrl  Secure password reset link with verification token
+     * @param expiresAt Expiration timestamp
+     */
+    void sendPasswordResetEmail(
+            String toEmail,
+            String userName,
+            String resetUrl,
+            Instant expiresAt
+    );
+}

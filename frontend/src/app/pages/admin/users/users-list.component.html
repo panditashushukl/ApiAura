@@ -1,4 +1,4 @@
-<div class="flex-1 overflow-x-auto">
+<div class="flex-1 overflow-auto min-h-0">
   <table mat-table [dataSource]="dataSource()" matSort class="w-full">
     <!-- Name Column -->
     <ng-container matColumnDef="name">
@@ -188,6 +188,6 @@
 <mat-paginator
   [pageSizeOptions]="[10, 25, 50]"
   showFirstLastButtons
-  class="border-t border-app"
+  class="border-t border-app mt-auto shrink-0"
 ></mat-paginator>
 

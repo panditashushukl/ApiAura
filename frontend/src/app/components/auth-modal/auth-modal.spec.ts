@@ -247,6 +247,55 @@ describe('AuthModalComponent', () => {
     expect(nameInput).toBeTruthy();
   });
 
+  describe('Forgot Password Mode', () => {
+    beforeEach(() => {
+      authModalService.openForgotPassword();
+      fixture.detectChanges();
+    });
+
+    it('should show email field only and hide password inputs', () => {
+      const emailInput = fixture.nativeElement.querySelector('#auth-email');
+      const passwordInput = fixture.nativeElement.querySelector('#auth-password');
+      const submitBtn = fixture.nativeElement.querySelector('button[type="submit"]');
+
+      expect(emailInput).toBeTruthy();
+      expect(passwordInput).toBeNull();
+      expect(submitBtn.textContent).toContain('Send Reset Link');
+    });
+
+    it('should submit forgot-password request to backend and display confirmation alert', () => {
+      component.email.set('user@example.com');
+      fixture.detectChanges();
+
+      component.onSubmit();
+
+      const req = httpTesting.expectOne('http://localhost:8080/api/v1/auth/forgot-password');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ email: 'user@example.com' });
+
+      req.flush({
+        success: true,
+        message: 'Password reset link sent to your email.',
+      });
+
+      fixture.detectChanges();
+
+      expect(component.forgotPasswordSent()).toBe(true);
+      const successBox = fixture.nativeElement.querySelector('.text-emerald-600');
+      expect(successBox).toBeTruthy();
+      expect(fixture.nativeElement.textContent).toContain('Password reset link');
+    });
+
+    it('should switch back to login mode from forgot password', () => {
+      component.switchMode('login');
+      fixture.detectChanges();
+
+      expect(authModalService.mode()).toBe('login');
+      const passwordInput = fixture.nativeElement.querySelector('#auth-password');
+      expect(passwordInput).toBeTruthy();
+    });
+  });
+
   it('should close when close button is clicked', () => {
     authModalService.openLogin();
     fixture.detectChanges();

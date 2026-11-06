@@ -7,6 +7,18 @@ import { AdminSlice } from './shared/admin-resource-helper';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './admin-layout.component.html',
+  styles: [
+    `
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+      }
+    `,
+  ],
 })
 export class AdminLayoutComponent {
   readonly activeSlice = model<AdminSlice>('users');
@@ -14,6 +26,11 @@ export class AdminLayoutComponent {
   readonly userStatusFilter = model<string>('ALL');
   readonly roleTypeFilter = model<string>('ALL');
   readonly permissionResourceFilter = model<string>('ALL');
+
+  readonly usersCount = input<number>(0);
+  readonly rolesCount = input<number>(0);
+  readonly permissionsCount = input<number>(0);
+  readonly orgsCount = input<number>(0);
 
   readonly uniqueResources = input<string[]>([]);
   readonly feedbackMessage = input<string | null>(null);

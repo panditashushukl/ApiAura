@@ -1,6 +1,11 @@
 import { Component, input, model, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AdminOrganization, AdminRole, AdminUser } from '../../../core/models/admin.models';
+import {
+  AdminOrganization,
+  AdminRole,
+  AdminUser,
+  OrganizationInvitation,
+} from '../../../core/models/admin.models';
 
 @Component({
   selector: 'app-org-details',
@@ -15,6 +20,7 @@ export class OrgDetailsComponent {
   readonly currentMembers = input<AdminUser[]>([]);
   readonly candidateUsers = input<AdminUser[]>([]);
   readonly assignableRoles = input<AdminRole[]>([]);
+  readonly invitations = input<OrganizationInvitation[]>([]);
 
   readonly assignSearch = model<string>('');
   readonly selectedUser = model<AdminUser | null>(null);
@@ -25,10 +31,17 @@ export class OrgDetailsComponent {
   readonly assignUser = output<void>();
   readonly removeUser = output<AdminUser>();
   readonly changeRole = output<{ user: AdminUser; roleId: string }>();
+  readonly sendInvitation = output<{ email: string; roleId?: string; roleCode?: string }>();
+  readonly cancelInvitation = output<string>();
   readonly copyId = output<string>();
   readonly close = output<void>();
 
   readonly dropdownOpen = signal<boolean>(false);
+
+  // Invite member form state
+  readonly inviteEmail = signal<string>('');
+  readonly inviteRoleId = signal<string>('');
+  readonly copiedInviteId = signal<string | null>(null);
 
   selectCandidate(u: AdminUser): void {
     this.selectedUser.set(u);
@@ -57,5 +70,48 @@ export class OrgDetailsComponent {
     const val = (event.target as HTMLInputElement).value;
     this.assignSearch.set(val);
     this.dropdownOpen.set(true);
+  }
+
+  onInviteEmailChange(event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.inviteEmail.set(val);
+  }
+
+  onInviteRoleChange(event: Event): void {
+    const val = (event.target as HTMLSelectElement).value;
+    this.inviteRoleId.set(val);
+  }
+
+  submitInvite(): void {
+    const email = this.inviteEmail().trim();
+    if (!email) return;
+
+    const roleId = this.inviteRoleId();
+    let roleCode: string | undefined;
+    if (roleId) {
+      const found = this.assignableRoles().find((r) => r.id === roleId);
+      roleCode = found?.code;
+    }
+
+    this.sendInvitation.emit({
+      email,
+      roleId: roleId || undefined,
+      roleCode,
+    });
+
+    this.inviteEmail.set('');
+    this.inviteRoleId.set('');
+  }
+
+  copyInvitationLink(inv: OrganizationInvitation): void {
+    const url = inv.invitationUrl || (inv.token ? `${window.location.origin}/invite/accept?token=${inv.token}` : '');
+    if (!url) return;
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.copiedInviteId.set(inv.id);
+        setTimeout(() => this.copiedInviteId.set(null), 2000);
+      });
+    }
   }
 }

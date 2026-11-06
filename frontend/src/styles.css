@@ -216,6 +216,46 @@ input:-webkit-autofill:active {
   color: inherit !important;
 }
 
+/* Angular Material Table Sovereign Theming */
+.mat-mdc-table {
+  background-color: transparent !important;
+  font-family: inherit !important;
+  width: 100%;
+}
+
+.mat-mdc-header-row {
+  background-color: var(--bg-subtle) !important;
+  min-height: 44px !important;
+}
+
+.mat-mdc-header-cell {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-muted) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  border-bottom: 1px solid var(--border-app) !important;
+  padding: 0.625rem 1rem !important;
+  white-space: nowrap;
+}
+
+.mat-mdc-row {
+  min-height: 52px !important;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.mat-mdc-row:hover {
+  background-color: var(--bg-surface-hover) !important;
+}
+
+.mat-mdc-cell {
+  color: var(--text-main) !important;
+  font-size: 0.8125rem !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 0.625rem 1rem !important;
+}
+
 /* Angular Material Paginator Customization */
 .mat-mdc-paginator {
   background-color: var(--bg-surface) !important;

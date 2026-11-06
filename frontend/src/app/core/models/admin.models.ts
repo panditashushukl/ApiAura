@@ -108,3 +108,31 @@ export interface UpdateOrganizationPayload {
   ownerId?: string;
 }
 
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+
+export interface OrganizationInvitation {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  organizationSlug?: string;
+  email: string;
+  roleId?: string;
+  roleName?: string;
+  roleCode?: string;
+  invitedById?: string;
+  inviterName?: string;
+  status: InvitationStatus;
+  invitedAt?: string;
+  expiresAt?: string;
+  respondedAt?: string;
+  token?: string;
+  invitationUrl?: string;
+}
+
+export interface CreateInvitationPayload {
+  email: string;
+  roleId?: string;
+  roleCode?: string;
+}
+
+
