@@ -26,7 +26,26 @@ describe('AdminComponent', () => {
       email: 'admin@aura.io',
       status: 'ACTIVE',
       roles: ['ADMIN'],
-      organizationName: 'ApiAura Org',
+      organizationId: 'c8ab3bb0-ab1e-475e-ad03-a4e5aa2cd4f5',
+      organizationName: 'comp',
+      organizationSlug: 'comp',
+      organizations: [
+        {
+          id: 'f1f0b619-1ded-422d-a2fa-4112d5c799dc',
+          name: 'Acme Software Corp',
+          slug: 'acme-corp',
+        },
+        {
+          id: '60820aef-23f2-4d23-9ba4-96627b19fb90',
+          name: 'Company',
+          slug: 'company',
+        },
+        {
+          id: 'c8ab3bb0-ab1e-475e-ad03-a4e5aa2cd4f5',
+          name: 'comp',
+          slug: 'comp',
+        },
+      ],
     },
     {
       id: 'u-2',
@@ -717,5 +736,33 @@ describe('AdminComponent', () => {
     });
     expect(comp.showCreateUserModal()).toBe(false);
     expect(comp.feedbackMessage()).toBe('User created successfully');
+  });
+
+  it('should render organizations from user organizations array in table and in details pane', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const multiOrgUser = mockUsers[0];
+
+    // Helper returns organizations array
+    const orgs = comp.getUserOrganizations(multiOrgUser);
+    expect(orgs.length).toBe(3);
+    expect(orgs.map((o) => o.name)).toEqual(['Acme Software Corp', 'Company', 'comp']);
+
+    // Check table rendering contains organizations
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Acme Software Corp');
+
+    // Open details pane
+    comp.openDetailsPanel('user', multiOrgUser);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPage()).toBe(true);
+    expect(comp.userDetail).toEqual(multiOrgUser);
+    expect(compiled.textContent).toContain('Organisation Membership (3)');
+    expect(compiled.textContent).toContain('Acme Software Corp');
+    expect(compiled.textContent).toContain('Company');
+    expect(compiled.textContent).toContain('comp');
   });
 });

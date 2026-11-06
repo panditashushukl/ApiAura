@@ -226,6 +226,17 @@ export class AdminComponent implements OnInit {
     return allUsers.find((u) => u.organizationId === org.id) || null;
   }
 
+  getUserOrganizations(user: AdminUser | null | undefined): { id?: string; name: string; slug?: string }[] {
+    if (!user) return [];
+    if (user.organizations && user.organizations.length > 0) {
+      return user.organizations;
+    }
+    if (user.organizationName) {
+      return [{ id: user.organizationId, name: user.organizationName, slug: user.organizationSlug }];
+    }
+    return [];
+  }
+
   readonly orgAdminUser = computed<AdminUser | null>(() => {
     return this.orgDetail ? this.getOrgAdmin(this.orgDetail) : null;
   });
@@ -770,7 +781,8 @@ export class AdminComponent implements OnInit {
           user.name?.toLowerCase().includes(query) ||
             user.email?.toLowerCase().includes(query) ||
             user.roles?.some((r) => r.toLowerCase().includes(query)) ||
-            user.organizationName?.toLowerCase().includes(query),
+            user.organizationName?.toLowerCase().includes(query) ||
+            user.organizations?.some((o) => o.name?.toLowerCase().includes(query)),
         );
 
       return Boolean(matchesStatus && matchesQuery);
