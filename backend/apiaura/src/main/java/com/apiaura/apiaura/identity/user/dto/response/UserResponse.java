@@ -26,6 +26,14 @@ public class UserResponse {
         private boolean isMember;
     }
 
+    @Getter
+    @Builder
+    public static class UserOrganizationInfo {
+        private UUID id;
+        private String name;
+        private String slug;
+    }
+
     private UUID id;
     private String name;
     private String email;
@@ -33,6 +41,7 @@ public class UserResponse {
     private UUID organizationId;
     private String organizationName;
     private String organizationSlug;
+    private List<UserOrganizationInfo> organizations;
     private List<UserWorkspaceInfo> workspaces;
     private UserStatus status;
     private Instant lastLoginAt;
@@ -74,12 +83,32 @@ public class UserResponse {
         String orgName = null;
         String orgSlug = null;
         List<UserWorkspaceInfo> workspaceInfos = new ArrayList<>();
+        List<UserOrganizationInfo> organizationInfos = new ArrayList<>();
 
         try {
             if (user.getOrganization() != null) {
                 orgId = user.getOrganization().getId();
                 orgName = user.getOrganization().getName();
                 orgSlug = user.getOrganization().getSlug();
+            }
+
+            if (user.getOrganizations() != null) {
+                user.getOrganizations().forEach(o -> {
+                    if (o != null) {
+                        organizationInfos.add(UserOrganizationInfo.builder()
+                                .id(o.getId())
+                                .name(o.getName())
+                                .slug(o.getSlug())
+                                .build());
+                    }
+                });
+            }
+            if (organizationInfos.isEmpty() && user.getOrganization() != null) {
+                organizationInfos.add(UserOrganizationInfo.builder()
+                        .id(user.getOrganization().getId())
+                        .name(user.getOrganization().getName())
+                        .slug(user.getOrganization().getSlug())
+                        .build());
             }
 
             java.util.Set<UUID> addedWsIds = new java.util.HashSet<>();
@@ -128,6 +157,7 @@ public class UserResponse {
                 .organizationId(orgId)
                 .organizationName(orgName)
                 .organizationSlug(orgSlug)
+                .organizations(organizationInfos)
                 .workspaces(workspaceInfos)
                 .status(user.getStatus())
                 .lastLoginAt(user.getLastLoginAt())

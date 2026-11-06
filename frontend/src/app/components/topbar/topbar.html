@@ -1,8 +1,87 @@
 <header
   class="h-16 w-full border-b border-app bg-surface px-6 flex items-center justify-between z-20"
 >
-  <!-- Brand Identity -->
-  <app-logo size="md" [showText]="true" textSize="lg"></app-logo>
+  <!-- Left Side: Brand Identity + Organisation Switcher -->
+  <div class="flex items-center gap-3.5">
+    <app-logo size="md" [showText]="true" textSize="lg"></app-logo>
+
+    @if (currentOrgName()) {
+      <div class="h-5 w-px bg-app hidden sm:block"></div>
+
+      @if (hasMultipleOrgs()) {
+        <!-- Organisation Switcher Dropdown (Multiple Organisations) -->
+        <div class="relative" id="org-switcher-container">
+          <button
+            type="button"
+            (click)="toggleOrgMenu()"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-app bg-surface hover:border-bhagwa-500/40 hover:bg-surface-hover text-text-main text-xs font-semibold transition-all cursor-pointer shadow-2xs select-none"
+            id="btn-org-switcher"
+            title="Switch Organisation"
+            aria-haspopup="true"
+            [attr.aria-expanded]="orgMenuOpen()"
+          >
+            <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+            <span class="max-w-[130px] sm:max-w-[190px] truncate" id="topbar-current-org-name">{{ currentOrgName() }}</span>
+            <svg
+              class="w-3.5 h-3.5 text-text-muted transition-transform duration-150 shrink-0"
+              [class.rotate-180]="orgMenuOpen()"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          @if (orgMenuOpen()) {
+            <div
+              class="absolute left-0 mt-2 w-60 bg-surface-elevated border border-app rounded-2xl shadow-2xl py-2 z-50 text-text-main animate-in fade-in zoom-in-95 duration-100"
+              id="org-switcher-dropdown"
+            >
+              <div class="px-3.5 py-1.5 border-b border-app">
+                <p class="text-[10px] uppercase font-bold text-text-muted tracking-wider">Switch Organisation</p>
+              </div>
+              <div class="py-1 max-h-56 overflow-y-auto">
+                @for (org of userOrganizations(); track org.id) {
+                  <button
+                    type="button"
+                    (click)="switchOrganization(org)"
+                    class="w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-surface-hover transition-colors cursor-pointer group"
+                    [class.text-bhagwa-600]="org.name === currentOrgName()"
+                    [class.dark:text-bhagwa-400]="org.name === currentOrgName()"
+                    [class.font-bold]="org.name === currentOrgName()"
+                    [class.font-medium]="org.name !== currentOrgName()"
+                  >
+                    <div class="flex items-center gap-2 min-w-0 pr-2">
+                      <span class="w-6 h-6 rounded-lg bg-bhagwa-500/10 text-bhagwa-600 dark:text-bhagwa-400 font-bold text-[11px] flex items-center justify-center shrink-0">
+                        {{ org.name.charAt(0).toUpperCase() }}
+                      </span>
+                      <span class="truncate">{{ org.name }}</span>
+                    </div>
+                    @if (org.name === currentOrgName()) {
+                      <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Single Organisation Indicator Badge (No Switcher needed) -->
+        <div
+          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-app bg-subtle text-xs font-semibold text-text-main select-none"
+          id="current-org-badge"
+          title="Current Organisation: {{ currentOrgName() }}"
+        >
+          <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+          <span class="max-w-[130px] sm:max-w-[190px] truncate" id="topbar-current-org-name">{{ currentOrgName() }}</span>
+        </div>
+      }
+    }
+  </div>
 
   <!-- Right Actions: Dark/Light Mode Toggle, and either Login+Signup OR User Circle Avatar -->
   <div class="flex items-center gap-3">

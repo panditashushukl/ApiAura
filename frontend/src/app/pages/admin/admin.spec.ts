@@ -96,6 +96,7 @@ describe('AdminComponent', () => {
       getUserRoles: () => of(mockRoles),
       assignRoleToUser: () => of(void 0),
       removeRoleFromUser: () => of(void 0),
+      setUserRoles: () => of(void 0),
       resetUserPassword: () => of(void 0),
       createRole: () => of(mockRoles[0]),
       updateRole: () => of(mockRoles[0]),
@@ -268,7 +269,7 @@ describe('AdminComponent', () => {
     expect(comp.editUserForm.value.name).toBe('Alpha Admin');
     expect(comp.editUserForm.value.email).toBe('admin@aura.io');
     expect(comp.editUserForm.value.mobileNumber).toBe('+91 9999999999');
-    expect(comp.editUserForm.value.organizationId).toBe('o-1');
+    expect(comp.editUserSelectedOrgIds()).toEqual(['o-1']);
   });
 
   it('should submit updated user with edited email, phone, name, and organisation', () => {
@@ -281,6 +282,7 @@ describe('AdminComponent', () => {
       name: 'Alpha Admin',
       email: 'admin@aura.io',
       status: 'ACTIVE',
+      organizationId: 'o-1',
     });
 
     const updateSpy = vi.spyOn(adminService, 'updateUser');
@@ -289,8 +291,8 @@ describe('AdminComponent', () => {
       name: 'Updated Alpha',
       email: 'updated-alpha@aura.io',
       mobileNumber: '+91 8888888888',
-      organizationId: 'o-1',
     });
+    comp.editUserSelectedOrgIds.set(['o-1']);
 
     comp.submitEditUser();
 
@@ -299,6 +301,7 @@ describe('AdminComponent', () => {
       email: 'updated-alpha@aura.io',
       mobileNumber: '+91 8888888888',
       organizationId: 'o-1',
+      organizationIds: ['o-1'],
       clearOrganization: false,
     });
     expect(comp.showEditUserModal()).toBe(false);
@@ -326,5 +329,393 @@ describe('AdminComponent', () => {
     expect(resetSpy).toHaveBeenCalledWith('u-1', 'newSecretPassword123');
     expect(comp.showResetPasswordModal()).toBe(false);
     expect(comp.feedbackMessage()).toContain('Password for Alpha Admin created successfully');
+  });
+
+  it('should open details panel with user details when clicking view eye button on user row', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const targetUser = mockUsers[0];
+
+    comp.openDetailsPanel('user', targetUser);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(true);
+    expect(comp.detailType()).toBe('user');
+    expect(comp.userDetail?.name).toBe('Alpha Admin');
+    expect(comp.userDetail?.email).toBe('admin@aura.io');
+
+    const detailsPanel = fixture.nativeElement.querySelector('#details-panel');
+    expect(detailsPanel).toBeTruthy();
+    expect(detailsPanel.textContent).toContain('USER Details');
+    expect(detailsPanel.textContent).toContain('Alpha Admin');
+    expect(detailsPanel.textContent).toContain('admin@aura.io');
+    expect(detailsPanel.textContent).toContain('u-1');
+  });
+
+  it('should open details panel with role details and fetch granted permissions when viewing role', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const targetRole = mockRoles[0];
+    const getRolePermsSpy = vi.spyOn(adminService, 'getRolePermissions');
+
+    comp.openDetailsPanel('role', targetRole);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(true);
+    expect(comp.detailType()).toBe('role');
+    expect(comp.roleDetail?.code).toBe('ADMIN');
+    expect(getRolePermsSpy).toHaveBeenCalledWith('r-1');
+    expect(comp.roleDetailPermissions().length).toBe(2);
+
+    const detailsPanel = fixture.nativeElement.querySelector('#details-panel');
+    expect(detailsPanel).toBeTruthy();
+    expect(detailsPanel.textContent).toContain('ROLE Details');
+    expect(detailsPanel.textContent).toContain('Full administrative rights');
+    expect(detailsPanel.textContent).toContain('USER:READ');
+  });
+
+  it('should open details panel with permission details when viewing permission', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const targetPerm = mockPermissions[0];
+
+    comp.openDetailsPanel('permission', targetPerm);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(true);
+    expect(comp.detailType()).toBe('permission');
+    expect(comp.permissionDetail?.name).toBe('Read Users');
+    expect(comp.permissionDetail?.code).toBe('USER:READ');
+
+    const detailsPanel = fixture.nativeElement.querySelector('#details-panel');
+    expect(detailsPanel).toBeTruthy();
+    expect(detailsPanel.textContent).toContain('PERMISSION Details');
+    expect(detailsPanel.textContent).toContain('View user accounts');
+  });
+
+  it('should open details panel with organisation details when viewing organisation', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    const targetOrg = mockOrgs[0];
+
+    comp.openDetailsPanel('organization', targetOrg);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(true);
+    expect(comp.detailType()).toBe('organization');
+    expect(comp.orgDetail?.name).toBe('ApiAura Org');
+    expect(comp.orgDetail?.slug).toBe('apiaura-org');
+
+    const detailsPanel = fixture.nativeElement.querySelector('#details-panel');
+    expect(detailsPanel).toBeTruthy();
+    expect(detailsPanel.textContent).toContain('ORGANIZATION Details');
+    expect(detailsPanel.textContent).toContain('apiaura-org');
+    expect(detailsPanel.textContent).toContain('Organisation Administrator');
+    expect(detailsPanel.textContent).toContain('Alpha Admin');
+  });
+
+  it('should close details panel when close button or backdrop is clicked', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openDetailsPanel('user', mockUsers[0]);
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(true);
+
+    const closeBtn = fixture.nativeElement.querySelector('#btn-close-details-panel');
+    closeBtn.click();
+    fixture.detectChanges();
+
+    expect(comp.showDetailsPanel()).toBe(false);
+    expect(comp.selectedDetailItem()).toBeNull();
+  });
+
+  it('should organize permissions into groups by resource category', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openManageRolePermissions(mockRoles[0]);
+    fixture.detectChanges();
+
+    const groups = comp.permissionGroups();
+    expect(groups.length).toBeGreaterThan(0);
+    const userGroup = groups.find((g) => g.resource === 'user');
+    expect(userGroup).toBeTruthy();
+    expect(userGroup?.displayName).toBe('User Management');
+    expect(userGroup?.permissions.some((p) => p.code === 'USER:READ')).toBe(true);
+  });
+
+  it('should filter permission groups based on rolePermissionSearch query', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openManageRolePermissions(mockRoles[0]);
+    fixture.detectChanges();
+
+    comp.rolePermissionSearch.set('USER:READ');
+    fixture.detectChanges();
+
+    const filtered = comp.permissionGroups();
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].resource).toBe('user');
+
+    comp.rolePermissionSearch.set('nonexistent_query_xyz');
+    fixture.detectChanges();
+    expect(comp.permissionGroups().length).toBe(0);
+  });
+
+  it('should batch grant and revoke permissions via toggleGroupPermissions', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openManageRolePermissions(mockRoles[0]);
+    // Initially role only has p-1 (user:read)
+    comp.selectedRolePermissions.set([mockPermissions[0]]);
+    fixture.detectChanges();
+
+    const grantSpy = vi.spyOn(adminService, 'grantPermissionToRole');
+    const revokeSpy = vi.spyOn(adminService, 'revokePermissionFromRole');
+
+    // In mock, p-2 is in 'role' group and not granted -> grant should call p-2
+    const roleGroup = comp.permissionGroups().find((g) => g.resource === 'role')!;
+    comp.toggleGroupPermissions(roleGroup, true);
+    expect(grantSpy).toHaveBeenCalledWith('r-1', 'p-2');
+
+    // In mock, p-1 is in 'user' group and granted -> revoke should call p-1
+    const userGroup = comp.permissionGroups().find((g) => g.resource === 'user')!;
+    comp.toggleGroupPermissions(userGroup, false);
+    expect(revokeSpy).toHaveBeenCalledWith('r-1', 'p-1');
+  });
+
+  it('should allow searching candidate users and assigning user and role to an organisation', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openDetailsPage('organization', mockOrgs[0]);
+    fixture.detectChanges();
+
+    // Set up users with explicit organizationId
+    comp.users.set([
+      {
+        id: 'u-1',
+        name: 'Member User',
+        email: 'member@aura.io',
+        organizationId: 'o-1',
+        status: 'ACTIVE',
+        roles: ['ADMIN'],
+      },
+      {
+        id: 'u-2',
+        name: 'Candidate User',
+        email: 'candidate@aura.io',
+        mobileNumber: '+91 9123456789',
+        organizationId: undefined,
+        status: 'ACTIVE',
+        roles: [],
+      },
+      {
+        id: 'u-3',
+        name: 'Other Org User',
+        email: 'other@aura.io',
+        organizationId: 'o-2',
+        status: 'ACTIVE',
+        roles: [],
+      },
+    ]);
+    fixture.detectChanges();
+
+    // Verify currentOrgMembers has u-1
+    expect(comp.currentOrgMembers().map((u) => u.id)).toEqual(['u-1']);
+
+    // Candidate users should include u-2 and u-3
+    expect(comp.candidateUsersForOrg().map((u) => u.id)).toEqual(['u-2', 'u-3']);
+
+    // Search candidate by mobile number
+    comp.assignUserSearch.set('912345');
+    expect(comp.candidateUsersForOrg().length).toBe(1);
+    expect(comp.candidateUsersForOrg()[0].id).toBe('u-2');
+
+    // Select candidate u-2
+    comp.selectAssignUser(comp.candidateUsersForOrg()[0]);
+    expect(comp.selectedAssignUser()?.id).toBe('u-2');
+    expect(comp.assignUserDropdownOpen()).toBe(false);
+
+    // Select role r-1
+    comp.selectedAssignRoleId.set('r-1');
+
+    const updateSpy = vi.spyOn(adminService, 'updateUser');
+    const setRolesSpy = vi.spyOn(adminService, 'setUserRoles');
+
+    comp.assignUserToCurrentOrg();
+
+    expect(updateSpy).toHaveBeenCalledWith('u-2', {
+      organizationId: 'o-1',
+      roleIds: ['r-1'],
+    });
+    expect(comp.selectedAssignUser()).toBeNull();
+    expect(comp.selectedAssignRoleId()).toBe('');
+    expect(comp.feedbackMessage()).toContain('Successfully assigned Candidate User to ApiAura Org');
+  });
+
+  it('should allow changing member role and removing member from organisation', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.openDetailsPage('organization', mockOrgs[0]);
+    fixture.detectChanges();
+
+    const member: AdminUser = {
+      id: 'u-1',
+      name: 'Alpha Member',
+      email: 'member@aura.io',
+      organizationId: 'o-1',
+      status: 'ACTIVE',
+      roles: ['ADMIN'],
+    };
+
+    const setRolesSpy = vi.spyOn(adminService, 'setUserRoles');
+    comp.changeMemberRole(member, 'r-2');
+    expect(setRolesSpy).toHaveBeenCalledWith('u-1', ['r-2']);
+    expect(comp.feedbackMessage()).toContain('Updated role for Alpha Member');
+
+    const updateSpy = vi.spyOn(adminService, 'updateUser');
+    comp.removeUserFromOrg(member);
+    expect(updateSpy).toHaveBeenCalledWith('u-1', { clearOrganization: true });
+    expect(comp.feedbackMessage()).toContain('Removed Alpha Member from ApiAura Org');
+  });
+
+  it('should support searching and selecting multiple organisations in Edit User modal without roles', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+
+    const extraOrg: AdminOrganization = {
+      id: 'o-2',
+      name: 'Beta Global Org',
+      slug: 'beta-global',
+    };
+    comp.organizations.set([...mockOrgs, extraOrg]);
+
+    // Super Admin perspective
+    authService.currentUser.set({
+      id: 'super-1',
+      name: 'Super User',
+      email: 'super@aura.io',
+      roles: ['SUPER_ADMIN'],
+    });
+
+    comp.openEditUser({
+      id: 'u-target',
+      name: 'Target User',
+      email: 'target@aura.io',
+      status: 'ACTIVE',
+      organizationId: 'o-1',
+      organizations: [{ id: 'o-1', name: 'ApiAura Org', slug: 'apiaura-org' }],
+    });
+
+    expect(comp.isEditUserOrgSelected('o-1')).toBe(true);
+    expect(comp.isEditUserOrgSelected('o-2')).toBe(false);
+
+    // Search organisations in edit user
+    comp.editUserOrgSearch.set('Beta');
+    expect(comp.editUserAvailableOrgs().length).toBe(1);
+    expect(comp.editUserAvailableOrgs()[0].id).toBe('o-2');
+
+    // Toggle o-2 to add it (multi-org)
+    comp.toggleEditUserOrg('o-2');
+    expect(comp.isEditUserOrgSelected('o-2')).toBe(true);
+    expect(comp.editUserSelectedOrgIds()).toEqual(['o-1', 'o-2']);
+
+    // Remove o-1
+    comp.removeEditUserOrg('o-1');
+    expect(comp.isEditUserOrgSelected('o-1')).toBe(false);
+    expect(comp.editUserSelectedOrgIds()).toEqual(['o-2']);
+
+    const updateSpy = vi.spyOn(adminService, 'updateUser');
+    comp.submitEditUser();
+
+    // Verify updateUser does NOT send roleIds and sends organizationIds
+    expect(updateSpy).toHaveBeenCalledWith('u-target', {
+      name: 'Target User',
+      email: 'target@aura.io',
+      mobileNumber: undefined,
+      organizationId: 'o-2',
+      organizationIds: ['o-2'],
+      clearOrganization: false,
+    });
+  });
+
+  it('should allow assigning multiple organisations and roles in Add User modal for admin and super admin', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+
+    const extraOrg: AdminOrganization = {
+      id: 'o-2',
+      name: 'Secondary Org',
+      slug: 'secondary-org',
+    };
+    comp.organizations.set([...mockOrgs, extraOrg]);
+
+    // Super Admin perspective
+    authService.currentUser.set({
+      id: 'super-1',
+      name: 'Super User',
+      email: 'super@aura.io',
+      roles: ['SUPER_ADMIN'],
+    });
+
+    comp.openCreateModal();
+    expect(comp.showCreateUserModal()).toBe(true);
+
+    // Fill basic user form
+    comp.createUserForm.patchValue({
+      name: 'New Multi User',
+      email: 'newuser@aura.io',
+      password: 'password123',
+    });
+
+    // Multi-select organisations
+    comp.toggleCreateUserOrg('o-1');
+    comp.toggleCreateUserOrg('o-2');
+    expect(comp.createUserSelectedOrgIds()).toEqual(['o-1', 'o-2']);
+
+    // Multi-select roles
+    comp.toggleCreateUserRole('r-1');
+    comp.toggleCreateUserRole('r-2');
+    expect(comp.createUserSelectedRoleIds()).toEqual(['r-1', 'r-2']);
+
+    const createSpy = vi.spyOn(adminService, 'createUser');
+    comp.submitCreateUser();
+
+    expect(createSpy).toHaveBeenCalledWith({
+      name: 'New Multi User',
+      email: 'newuser@aura.io',
+      password: 'password123',
+      mobileNumber: undefined,
+      organizationId: 'o-1',
+      organizationIds: ['o-1', 'o-2'],
+      roleId: 'r-1',
+      roleIds: ['r-1', 'r-2'],
+    });
+    expect(comp.showCreateUserModal()).toBe(false);
+    expect(comp.feedbackMessage()).toBe('User created successfully');
   });
 });

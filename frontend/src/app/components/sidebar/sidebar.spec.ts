@@ -84,7 +84,7 @@ describe('SidebarComponent', () => {
     expect(fixture.nativeElement.querySelector('#sidebar-admin-link')).toBeNull();
   });
 
-  it('should display organisation info when user has an organisation', () => {
+  it('should NOT display organisation info in sidebar (relocated to topbar)', () => {
     authService.currentUser.set({
       id: 'u-admin',
       name: 'Admin User',
@@ -97,6 +97,6 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
 
     const aside = fixture.nativeElement.querySelector('aside');
-    expect(aside.textContent).toContain('ApiAura Labs');
+    expect(aside.textContent).not.toContain('ApiAura Labs');
   });
 });

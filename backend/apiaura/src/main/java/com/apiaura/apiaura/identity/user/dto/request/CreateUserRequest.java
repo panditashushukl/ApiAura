@@ -29,6 +29,10 @@ public class CreateUserRequest {
 
     private UUID organizationId;
 
+    private java.util.List<UUID> organizationIds;
+
     private UUID roleId;
+
+    private java.util.List<UUID> roleIds;
 }
 

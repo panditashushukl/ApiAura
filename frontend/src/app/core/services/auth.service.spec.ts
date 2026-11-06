@@ -146,4 +146,63 @@ describe('AuthService', () => {
     expect(localStorage.getItem('user')).toBeNull();
     expect(localStorage.getItem('accessToken')).toBeNull();
   });
+
+  it('should refresh token and update currentUser and token signals', () => {
+    service.refreshToken().subscribe();
+
+    const req = httpTesting.expectOne('http://localhost:8080/api/v1/auth/refresh');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.withCredentials).toBe(true);
+
+    req.flush({
+      success: true,
+      message: 'Token refreshed',
+      data: {
+        accessToken: 'new-jwt-token',
+        user: {
+          id: 'u-refresh',
+          name: 'Shukla Ji',
+          email: 'test@example.com',
+        },
+      },
+    });
+
+    expect(service.currentUser()?.id).toBe('u-refresh');
+    expect(service.token()).toBe('new-jwt-token');
+    expect(service.isAuthenticated()).toBe(true);
+  });
+
+  it('should share single in-flight refresh request among concurrent callers', () => {
+    let call1Done = false;
+    let call2Done = false;
+
+    service.refreshToken().subscribe((res) => {
+      call1Done = true;
+      expect(res.data.accessToken).toBe('shared-token');
+    });
+
+    service.refreshToken().subscribe((res) => {
+      call2Done = true;
+      expect(res.data.accessToken).toBe('shared-token');
+    });
+
+    // Only ONE HTTP request must be dispatched
+    const req = httpTesting.expectOne('http://localhost:8080/api/v1/auth/refresh');
+    req.flush({
+      success: true,
+      message: 'Token refreshed',
+      data: {
+        accessToken: 'shared-token',
+        user: {
+          id: 'u-shared',
+          name: 'Shared User',
+          email: 'shared@example.com',
+        },
+      },
+    });
+
+    expect(call1Done).toBe(true);
+    expect(call2Done).toBe(true);
+    expect(service.currentUser()?.name).toBe('Shared User');
+  });
 });

@@ -2,13 +2,14 @@ import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ApiResponse,
   AuthResponseData,
   LoginPayload,
   RegisterPayload,
+  UserOrganizationInfo,
   UserProfile,
 } from '../models/auth.models';
 
@@ -26,6 +27,7 @@ export class AuthService {
   private readonly endpoint = '/auth';
 
   readonly currentUser = signal<UserProfile | null>(null);
+  readonly userOrganizations = signal<UserOrganizationInfo[]>([]);
   readonly token = signal<string | null>(null);
   readonly isLoading = signal<boolean>(false);
   readonly isCheckingAuth = signal<boolean>(false);
@@ -100,10 +102,12 @@ export class AuthService {
             return response.data;
           }
           this.currentUser.set(null);
+          this.userOrganizations.set([]);
           return null;
         }),
         catchError(() => {
           this.currentUser.set(null);
+          this.userOrganizations.set([]);
           return of(null);
         }),
         finalize(() => {
@@ -185,14 +189,127 @@ export class AuthService {
       .subscribe();
   }
 
+  private refreshInProgress$: Observable<ApiResponse<AuthResponseData>> | null = null;
+
+  /**
+   * Refreshes the session using the HttpOnly refreshToken cookie.
+   * Concurrent callers share the same in-flight Observable to prevent race conditions.
+   */
+  refreshToken(): Observable<ApiResponse<AuthResponseData>> {
+    if (!isPlatformBrowser(this.platformId)) {
+      return throwError(() => new Error('Refresh not supported outside browser'));
+    }
+
+    if (this.refreshInProgress$) {
+      return this.refreshInProgress$;
+    }
+
+    this.refreshInProgress$ = this.http
+      .post<ApiResponse<AuthResponseData>>(
+        `${this.baseUrl}${this.endpoint}/refresh`,
+        {},
+        {
+          withCredentials: true,
+        },
+      )
+      .pipe(
+        tap((response) => {
+          if (response?.data?.user) {
+            this.handleAuthSuccess(response.data);
+          }
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+        finalize(() => {
+          this.refreshInProgress$ = null;
+        }),
+      );
+
+    return this.refreshInProgress$;
+  }
+
   clearSession(): void {
     this.currentUser.set(null);
+    this.userOrganizations.set([]);
     this.token.set(null);
     this.errorMessage.set(null);
     this.cleanLegacyStorage();
     if (this.router && this.router.url.startsWith('/admin')) {
       this.router.navigate(['/']);
     }
+  }
+
+  loadUserOrganizations(): Observable<UserOrganizationInfo[]> {
+    if (!isPlatformBrowser(this.platformId)) {
+      return of([]);
+    }
+
+    return this.http
+      .get<ApiResponse<UserOrganizationInfo[]>>(`${this.baseUrl}/organizations`, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((response) => {
+          const orgs = (response?.data || []).map((o) => ({
+            id: o.id,
+            name: o.name,
+            slug: o.slug,
+          }));
+          this.userOrganizations.set(orgs);
+          return orgs;
+        }),
+        catchError(() => {
+          const current = this.currentUser();
+          if (current?.organizationName && current?.organizationId) {
+            const fallback: UserOrganizationInfo[] = [
+              {
+                id: current.organizationId,
+                name: current.organizationName,
+                slug: current.organizationSlug || '',
+              },
+            ];
+            this.userOrganizations.set(fallback);
+            return of(fallback);
+          }
+          this.userOrganizations.set([]);
+          return of([]);
+        }),
+      );
+  }
+
+  switchOrganization(org: UserOrganizationInfo): Observable<UserProfile> {
+    const user = this.currentUser();
+    if (!user) {
+      return throwError(() => new Error('User not authenticated'));
+    }
+
+    return this.http
+      .patch<ApiResponse<UserProfile>>(
+        `${this.baseUrl}/users/me`,
+        { organizationId: org.id },
+        { withCredentials: true },
+      )
+      .pipe(
+        map((res) => {
+          const updatedUser: UserProfile = res?.data || {
+            ...user,
+            organizationId: org.id,
+            organizationName: org.name,
+            organizationSlug: org.slug,
+          };
+          this.currentUser.set(updatedUser);
+          return updatedUser;
+        }),
+        catchError(() => {
+          const updatedUser: UserProfile = {
+            ...user,
+            organizationId: org.id,
+            organizationName: org.name,
+            organizationSlug: org.slug,
+          };
+          this.currentUser.set(updatedUser);
+          return of(updatedUser);
+        }),
+      );
   }
 
   private handleAuthSuccess(data: AuthResponseData): void {

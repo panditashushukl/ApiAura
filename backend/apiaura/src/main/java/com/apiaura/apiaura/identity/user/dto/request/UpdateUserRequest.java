@@ -20,5 +20,9 @@ public class UpdateUserRequest {
 
     private java.util.UUID organizationId;
 
+    private java.util.List<java.util.UUID> organizationIds;
+
     private Boolean clearOrganization;
+
+    private java.util.List<java.util.UUID> roleIds;
 }

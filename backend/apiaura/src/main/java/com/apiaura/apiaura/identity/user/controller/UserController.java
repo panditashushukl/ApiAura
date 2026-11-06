@@ -158,6 +158,16 @@ public class UserController {
         return ApiResponse.success("Role assigned to user");
     }
 
+    @PutMapping("/{userId}/roles")
+    @PreAuthorize("hasAuthority('role:update') or hasRole('SUPER_ADMIN')")
+    public ApiResponse<Void> setUserRoles(
+            @PathVariable UUID userId,
+            @RequestBody List<UUID> roleIds
+    ) {
+        rbacService.setUserRoles(userId, roleIds);
+        return ApiResponse.success("User roles updated successfully");
+    }
+
     @DeleteMapping("/{userId}/roles/{roleId}")
     @PreAuthorize("hasAuthority('role:update')")
     public ApiResponse<Void> removeRole(

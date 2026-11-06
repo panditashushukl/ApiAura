@@ -32,8 +32,17 @@
 set -euf
 [ "${MVNW_VERBOSE-}" != debug ] || set -x
 
+# Auto-detect JDK 21 if JAVA_HOME is unset or lacks javac (e.g. system java points to JRE)
+if [ -z "${JAVA_HOME-}" ] || [ ! -x "${JAVA_HOME}/bin/javac" ]; then
+  if [ -x "/usr/lib/jvm/java-21-openjdk-amd64/bin/javac" ]; then
+    JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
+    PATH="$JAVA_HOME/bin:$PATH"
+    export JAVA_HOME PATH
+  fi
+fi
+
 # OS specific support.
-native_path() { printf %s\\n "$1"; }
+native_path() { printf %s\n "$1"; }
 case "$(uname)" in
 CYGWIN* | MINGW*)
   [ -z "${JAVA_HOME-}" ] || JAVA_HOME="$(cygpath --unix "$JAVA_HOME")"

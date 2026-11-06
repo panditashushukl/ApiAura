@@ -53,7 +53,11 @@
   font-size: 0.75rem !important;
 }
 
-.mat-mdc-paginator .mat-mdc-select-value,
+.mat-mdc-paginator .mat-mdc-select-value {
+  color: var(--text-main) !important;
+  font-weight: 600 !important;
+}
+
 .mat-mdc-paginator .mat-mdc-paginator-range-label {
   color: var(--text-secondary) !important;
 }

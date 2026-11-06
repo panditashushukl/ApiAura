@@ -44,6 +44,14 @@ public class User extends BaseEntity {
     @JoinColumn(name = "organization_id")
     private com.apiaura.apiaura.org.organization.entity.Organization organization;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_organizations",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "organization_id")
+    )
+    private Set<com.apiaura.apiaura.org.organization.entity.Organization> organizations = new HashSet<>();
+
     @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,

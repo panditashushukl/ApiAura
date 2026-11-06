@@ -18,6 +18,11 @@ public interface RbacService {
             UUID roleId
     );
 
+    void setUserRoles(
+            UUID userId,
+            List<UUID> roleIds
+    );
+
     List<RoleResponse> getUserRoles(
             UUID userId
     );

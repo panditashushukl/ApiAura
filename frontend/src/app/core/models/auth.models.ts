@@ -5,6 +5,12 @@ export interface UserWorkspaceInfo {
   isMember: boolean;
 }
 
+export interface UserOrganizationInfo {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -13,6 +19,7 @@ export interface UserProfile {
   organizationId?: string;
   organizationName?: string;
   organizationSlug?: string;
+  organizations?: UserOrganizationInfo[];
   workspaces?: UserWorkspaceInfo[];
   roles?: string[];
   permissions?: string[];

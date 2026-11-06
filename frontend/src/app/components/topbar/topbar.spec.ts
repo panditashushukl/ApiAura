@@ -143,5 +143,81 @@ describe('TopbarComponent', () => {
 
       expect(authService.currentUser()).toBeNull();
     });
+
+    it('should display current organisation name at left side after brand name', () => {
+      authService.currentUser.set({
+        id: '123',
+        name: 'Alex Johnson',
+        email: 'alex@example.com',
+        organizationName: 'ApiAura Labs',
+      });
+      const fixture = TestBed.createComponent(TopbarComponent);
+      fixture.detectChanges();
+
+      const orgBadge = fixture.nativeElement.querySelector('#topbar-current-org-name');
+      expect(orgBadge).toBeTruthy();
+      expect(orgBadge.textContent).toContain('ApiAura Labs');
+    });
+
+    it('should NOT display organisation when organisation is null', () => {
+      authService.currentUser.set({
+        id: '123',
+        name: 'Alex Johnson',
+        email: 'alex@example.com',
+        organizationName: undefined,
+      });
+      const fixture = TestBed.createComponent(TopbarComponent);
+      fixture.detectChanges();
+
+      const orgBadge = fixture.nativeElement.querySelector('#topbar-current-org-name');
+      expect(orgBadge).toBeNull();
+    });
+
+    it('should render switcher and allow switching when user has multiple organisations', () => {
+      authService.currentUser.set({
+        id: '123',
+        name: 'Alex Johnson',
+        email: 'alex@example.com',
+        organizationId: 'org-1',
+        organizationName: 'Primary Org',
+        organizations: [
+          { id: 'org-1', name: 'Primary Org', slug: 'primary-org' },
+          { id: 'org-2', name: 'Secondary Org', slug: 'secondary-org' },
+        ],
+      });
+      authService.userOrganizations.set([
+        { id: 'org-1', name: 'Primary Org', slug: 'primary-org' },
+        { id: 'org-2', name: 'Secondary Org', slug: 'secondary-org' },
+      ]);
+
+      const fixture = TestBed.createComponent(TopbarComponent);
+      fixture.detectChanges();
+
+      const switcherBtn = fixture.nativeElement.querySelector('#btn-org-switcher');
+      expect(switcherBtn).toBeTruthy();
+      expect(switcherBtn.textContent).toContain('Primary Org');
+
+      // Click to open dropdown
+      switcherBtn.click();
+      fixture.detectChanges();
+
+      const dropdown = fixture.nativeElement.querySelector('#org-switcher-dropdown');
+      expect(dropdown).toBeTruthy();
+      expect(dropdown.textContent).toContain('Secondary Org');
+
+      // Click to switch
+      const switchSpy = vi.spyOn(authService, 'switchOrganization');
+      const buttons = Array.from(dropdown.querySelectorAll('button')) as HTMLButtonElement[];
+      const secondOrgBtn = buttons.find((b) => b.textContent?.includes('Secondary Org'));
+      expect(secondOrgBtn).toBeTruthy();
+      secondOrgBtn?.click();
+      fixture.detectChanges();
+
+      expect(switchSpy).toHaveBeenCalledWith({
+        id: 'org-2',
+        name: 'Secondary Org',
+        slug: 'secondary-org',
+      });
+    });
   });
 });

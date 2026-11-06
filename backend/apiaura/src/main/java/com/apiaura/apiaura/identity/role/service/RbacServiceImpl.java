@@ -14,6 +14,8 @@ import com.apiaura.apiaura.identity.role.repository.RoleRepository;
 import com.apiaura.apiaura.identity.role.repository.UserRoleRepository;
 import com.apiaura.apiaura.identity.user.entity.User;
 import com.apiaura.apiaura.identity.user.repository.UserRepository;
+import com.apiaura.apiaura.foundation.common.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,30 @@ public class RbacServiceImpl implements RbacService {
         User user = findUser(userId);
         Role role = findRole(roleId);
 
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+
+        if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode()) && !isSuperAdmin) {
+            throw new AccessDeniedException("Only a Super Administrator can assign the SUPER_ADMIN role");
+        }
+
+        if (!isSuperAdmin) {
+            try {
+                UUID currentUserId = SecurityUtils.getCurrentUserId();
+                User currentUser = findUser(currentUserId);
+                boolean isSameOrg = currentUser.getOrganization() != null &&
+                        user.getOrganization() != null &&
+                        currentUser.getOrganization().getId().equals(user.getOrganization().getId());
+                boolean isOwner = user.getOrganization() != null &&
+                        user.getOrganization().getOwner() != null &&
+                        user.getOrganization().getOwner().getId().equals(currentUserId);
+                if (!isSameOrg && !isOwner) {
+                    throw new AccessDeniedException("Org admins can only manage roles for users in their own organization");
+                }
+            } catch (AccessDeniedException e) {
+                throw e;
+            } catch (Exception ignored) {}
+        }
+
         if (userRoleRepository.existsByUserIdAndRoleId(
                 userId,
                 roleId
@@ -68,6 +94,33 @@ public class RbacServiceImpl implements RbacService {
             UUID roleId
     ) {
 
+        User user = findUser(userId);
+        Role role = findRole(roleId);
+
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+
+        if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode()) && !isSuperAdmin) {
+            throw new AccessDeniedException("Only a Super Administrator can remove the SUPER_ADMIN role");
+        }
+
+        if (!isSuperAdmin) {
+            try {
+                UUID currentUserId = SecurityUtils.getCurrentUserId();
+                User currentUser = findUser(currentUserId);
+                boolean isSameOrg = currentUser.getOrganization() != null &&
+                        user.getOrganization() != null &&
+                        currentUser.getOrganization().getId().equals(user.getOrganization().getId());
+                boolean isOwner = user.getOrganization() != null &&
+                        user.getOrganization().getOwner() != null &&
+                        user.getOrganization().getOwner().getId().equals(currentUserId);
+                if (!isSameOrg && !isOwner) {
+                    throw new AccessDeniedException("Org admins can only manage roles for users in their own organization");
+                }
+            } catch (AccessDeniedException e) {
+                throw e;
+            } catch (Exception ignored) {}
+        }
+
         if (!userRoleRepository.existsByUserIdAndRoleId(
                 userId,
                 roleId
@@ -81,6 +134,63 @@ public class RbacServiceImpl implements RbacService {
                 userId,
                 roleId
         );
+    }
+
+    @Override
+    @Transactional
+    public void setUserRoles(
+            UUID userId,
+            List<UUID> roleIds
+    ) {
+        User user = findUser(userId);
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+
+        if (!isSuperAdmin) {
+            try {
+                UUID currentUserId = SecurityUtils.getCurrentUserId();
+                User currentUser = findUser(currentUserId);
+                boolean isSameOrg = currentUser.getOrganization() != null &&
+                        user.getOrganization() != null &&
+                        currentUser.getOrganization().getId().equals(user.getOrganization().getId());
+                boolean isOwner = user.getOrganization() != null &&
+                        user.getOrganization().getOwner() != null &&
+                        user.getOrganization().getOwner().getId().equals(currentUserId);
+                if (!isSameOrg && !isOwner) {
+                    throw new AccessDeniedException("Org admins can only manage roles for users in their own organization");
+                }
+            } catch (AccessDeniedException e) {
+                throw e;
+            } catch (Exception ignored) {}
+        }
+
+        List<UserRole> currentRoles = userRoleRepository.findByUserId(userId);
+
+        // Remove roles not in roleIds
+        for (UserRole ur : currentRoles) {
+            if (roleIds == null || !roleIds.contains(ur.getRole().getId())) {
+                if ("SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()) && !isSuperAdmin) {
+                    throw new AccessDeniedException("Only Super Administrator can remove SUPER_ADMIN role");
+                }
+                userRoleRepository.delete(ur);
+            }
+        }
+
+        // Add new roles
+        if (roleIds != null) {
+            for (UUID rId : roleIds) {
+                if (currentRoles.stream().noneMatch(ur -> ur.getRole().getId().equals(rId))) {
+                    Role role = findRole(rId);
+                    if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode()) && !isSuperAdmin) {
+                        throw new AccessDeniedException("Only a Super Administrator can assign the SUPER_ADMIN role");
+                    }
+                    UserRole userRole = new UserRole();
+                    userRole.setUser(user);
+                    userRole.setRole(role);
+                    userRole.setAssignedAt(Instant.now());
+                    userRoleRepository.save(userRole);
+                }
+            }
+        }
     }
 
     @Override

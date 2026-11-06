@@ -25,19 +25,4 @@
       </div>
     }
   </div>
-
-  <!-- Sidebar Footer / Organization Scope Indicator -->
-  @if (authService.currentUser()?.organizationName) {
-    <div class="p-3 border-t border-app">
-      <div class="px-2.5 py-2 rounded-xl bg-subtle border border-app text-xs flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
-        <div class="truncate flex-1">
-          <p class="text-[10px] text-muted font-medium leading-none">Organisation</p>
-          <p class="font-bold text-main truncate text-xs mt-0.5">
-            {{ authService.currentUser()?.organizationName }}
-          </p>
-        </div>
-      </div>
-    </div>
-  }
 </aside>

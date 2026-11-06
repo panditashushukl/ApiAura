@@ -4,6 +4,7 @@ import com.apiaura.apiaura.foundation.common.enums.UserStatus;
 import com.apiaura.apiaura.foundation.common.exception.BadRequestException;
 import com.apiaura.apiaura.foundation.common.exception.ResourceNotFoundException;
 import com.apiaura.apiaura.foundation.common.security.SecurityUtils;
+import com.apiaura.apiaura.identity.role.entity.Role;
 import com.apiaura.apiaura.identity.role.entity.UserRole;
 import com.apiaura.apiaura.identity.role.repository.RoleRepository;
 import com.apiaura.apiaura.identity.role.repository.UserRoleRepository;
@@ -46,33 +47,73 @@ public class UserServiceImpl implements UserService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setStatus(UserStatus.ACTIVE);
 
-        UUID orgId = request.getOrganizationId();
-        if (orgId == null) {
+        List<UUID> requestedOrgIds = request.getOrganizationIds();
+        if ((requestedOrgIds == null || requestedOrgIds.isEmpty()) && request.getOrganizationId() != null) {
+            requestedOrgIds = List.of(request.getOrganizationId());
+        }
+
+        if (requestedOrgIds == null || requestedOrgIds.isEmpty()) {
             try {
                 UUID currentUserId = SecurityUtils.getCurrentUserId();
                 User currentUser = findUser(currentUserId);
                 if (currentUser.getOrganization() != null) {
-                    orgId = currentUser.getOrganization().getId();
+                    requestedOrgIds = List.of(currentUser.getOrganization().getId());
                 }
             } catch (Exception ignored) {}
         }
 
-        if (orgId != null) {
-            organizationRepository.findById(orgId).ifPresent(user::setOrganization);
+        boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+
+        if (requestedOrgIds != null && !requestedOrgIds.isEmpty()) {
+            if (!isSuperAdmin) {
+                try {
+                    UUID currentUserId = SecurityUtils.getCurrentUserId();
+                    User currentUser = findUser(currentUserId);
+                    UUID currentOrgId = currentUser.getOrganization() != null ? currentUser.getOrganization().getId() : null;
+                    for (UUID oId : requestedOrgIds) {
+                        if (currentOrgId == null || !currentOrgId.equals(oId)) {
+                            throw new BadRequestException("Org admins can only assign users to their own organization");
+                        }
+                    }
+                } catch (BadRequestException e) {
+                    throw e;
+                } catch (Exception ignored) {}
+            }
+
+            for (UUID oId : requestedOrgIds) {
+                var orgOpt = organizationRepository.findById(oId);
+                if (orgOpt.isPresent()) {
+                    var org = orgOpt.get();
+                    user.getOrganizations().add(org);
+                    if (user.getOrganization() == null) {
+                        user.setOrganization(org);
+                    }
+                }
+            }
         }
 
         user = userRepository.save(user);
 
-        if (request.getRoleId() != null) {
+        List<UUID> requestedRoleIds = request.getRoleIds();
+        if ((requestedRoleIds == null || requestedRoleIds.isEmpty()) && request.getRoleId() != null) {
+            requestedRoleIds = List.of(request.getRoleId());
+        }
+
+        if (requestedRoleIds != null && !requestedRoleIds.isEmpty()) {
             final User savedUser = user;
-            roleRepository.findById(request.getRoleId()).ifPresent(role -> {
+            for (UUID rId : requestedRoleIds) {
+                Role role = roleRepository.findById(rId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + rId));
+                if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode()) && !isSuperAdmin) {
+                    throw new BadRequestException("Only Super Administrator can assign SUPER_ADMIN role");
+                }
                 UserRole ur = new UserRole();
                 ur.setUser(savedUser);
                 ur.setRole(role);
                 ur.setAssignedAt(Instant.now());
                 userRoleRepository.save(ur);
                 savedUser.getRoles().add(ur);
-            });
+            }
         } else {
             final User savedUser = user;
             roleRepository.findByCode("GUEST").ifPresent(role -> {
@@ -196,6 +237,37 @@ public class UserServiceImpl implements UserService {
 
         if (Boolean.TRUE.equals(request.getClearOrganization())) {
             user.setOrganization(null);
+            user.getOrganizations().clear();
+        } else if (request.getOrganizationIds() != null) {
+            boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+            if (!isSuperAdmin) {
+                try {
+                    UUID currentUserId = SecurityUtils.getCurrentUserId();
+                    User currentUser = findUser(currentUserId);
+                    UUID currentOrgId = currentUser.getOrganization() != null ? currentUser.getOrganization().getId() : null;
+                    for (UUID oId : request.getOrganizationIds()) {
+                        if (currentOrgId == null || !currentOrgId.equals(oId)) {
+                            throw new BadRequestException("Org admins can only assign users to their own organization");
+                        }
+                    }
+                } catch (BadRequestException e) {
+                    throw e;
+                } catch (Exception ignored) {}
+            }
+
+            user.getOrganizations().clear();
+            for (UUID oId : request.getOrganizationIds()) {
+                organizationRepository.findById(oId).ifPresent(org -> {
+                    user.getOrganizations().add(org);
+                });
+            }
+            if (!user.getOrganizations().isEmpty()) {
+                if (user.getOrganization() == null || !user.getOrganizations().contains(user.getOrganization())) {
+                    user.setOrganization(user.getOrganizations().iterator().next());
+                }
+            } else {
+                user.setOrganization(null);
+            }
         } else if (request.getOrganizationId() != null) {
             try {
                 com.apiaura.apiaura.org.organization.entity.Organization targetOrg = organizationRepository.findById(request.getOrganizationId())
@@ -206,17 +278,73 @@ public class UserServiceImpl implements UserService {
                 if (!isSuperAdmin) {
                     UUID currentUserId = SecurityUtils.getCurrentUserId();
                     User currentUser = findUser(currentUserId);
-                    if (currentUser.getOrganization() == null || !currentUser.getOrganization().getId().equals(targetOrg.getId())) {
+                    boolean isSelf = currentUserId != null && currentUserId.equals(userId);
+                    boolean isTargetOwner = targetOrg.getOwner() != null && targetOrg.getOwner().getId().equals(currentUserId);
+                    boolean isSameOrg = currentUser.getOrganization() != null && currentUser.getOrganization().getId().equals(targetOrg.getId());
+
+                    if (!isSelf && !isTargetOwner && !isSameOrg) {
                         throw new BadRequestException("Org admins can only assign users to their own organization");
                     }
                 }
                 user.setOrganization(targetOrg);
+                user.getOrganizations().add(targetOrg);
             } catch (Exception e) {
                 if (e instanceof BadRequestException || e instanceof ResourceNotFoundException) {
                     throw e;
                 }
                 // Fallback for direct service updates
-                organizationRepository.findById(request.getOrganizationId()).ifPresent(user::setOrganization);
+                organizationRepository.findById(request.getOrganizationId()).ifPresent(org -> {
+                    user.setOrganization(org);
+                    user.getOrganizations().add(org);
+                });
+            }
+        }
+
+        if (request.getRoleIds() != null) {
+            boolean isSuperAdmin = SecurityUtils.isSuperAdmin();
+            if (!isSuperAdmin) {
+                try {
+                    UUID currentUserId = SecurityUtils.getCurrentUserId();
+                    User currentUser = findUser(currentUserId);
+                    boolean isSameOrg = currentUser.getOrganization() != null &&
+                            user.getOrganization() != null &&
+                            currentUser.getOrganization().getId().equals(user.getOrganization().getId());
+                    boolean isOwner = user.getOrganization() != null &&
+                            user.getOrganization().getOwner() != null &&
+                            user.getOrganization().getOwner().getId().equals(currentUserId);
+                    if (!isSameOrg && !isOwner) {
+                        throw new BadRequestException("Org admins can only manage roles for users in their own organization");
+                    }
+                } catch (BadRequestException e) {
+                    throw e;
+                } catch (Exception ignored) {}
+            }
+
+            List<UserRole> currentRoles = userRoleRepository.findByUserId(userId);
+            for (UserRole ur : currentRoles) {
+                if (!request.getRoleIds().contains(ur.getRole().getId())) {
+                    if ("SUPER_ADMIN".equalsIgnoreCase(ur.getRole().getCode()) && !isSuperAdmin) {
+                        throw new BadRequestException("Only Super Administrator can remove SUPER_ADMIN role");
+                    }
+                    userRoleRepository.delete(ur);
+                    user.getRoles().remove(ur);
+                }
+            }
+
+            for (UUID rId : request.getRoleIds()) {
+                if (currentRoles.stream().noneMatch(ur -> ur.getRole().getId().equals(rId))) {
+                    Role role = roleRepository.findById(rId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + rId));
+                    if ("SUPER_ADMIN".equalsIgnoreCase(role.getCode()) && !isSuperAdmin) {
+                        throw new BadRequestException("Only Super Administrator can assign SUPER_ADMIN role");
+                    }
+                    UserRole userRole = new UserRole();
+                    userRole.setUser(user);
+                    userRole.setRole(role);
+                    userRole.setAssignedAt(java.time.Instant.now());
+                    userRoleRepository.save(userRole);
+                    user.getRoles().add(userRole);
+                }
             }
         }
 

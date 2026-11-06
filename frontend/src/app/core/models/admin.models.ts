@@ -1,5 +1,11 @@
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
 
+export interface AdminUserOrganization {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface AdminUser {
   id: string;
   name: string;
@@ -8,6 +14,7 @@ export interface AdminUser {
   organizationId?: string;
   organizationName?: string;
   organizationSlug?: string;
+  organizations?: AdminUserOrganization[];
   status: UserStatus;
   roles?: string[];
   permissions?: string[];
@@ -22,7 +29,9 @@ export interface CreateUserPayload {
   password: string;
   mobileNumber?: string;
   organizationId?: string;
+  organizationIds?: string[];
   roleId?: string;
+  roleIds?: string[];
 }
 
 export interface UpdateUserPayload {
@@ -30,7 +39,9 @@ export interface UpdateUserPayload {
   email?: string;
   mobileNumber?: string;
   organizationId?: string;
+  organizationIds?: string[];
   clearOrganization?: boolean;
+  roleIds?: string[];
 }
 
 export interface AdminRole {

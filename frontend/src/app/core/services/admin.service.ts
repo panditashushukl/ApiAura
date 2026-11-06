@@ -97,6 +97,14 @@ export class AdminService {
       .pipe(map(() => void 0));
   }
 
+  setUserRoles(userId: string, roleIds: string[]): Observable<void> {
+    return this.http
+      .put<ApiResponse<void>>(`${this.baseUrl}/users/${userId}/roles`, roleIds, {
+        withCredentials: true,
+      })
+      .pipe(map(() => void 0));
+  }
+
   resetUserPassword(userId: string, newPassword: string): Observable<void> {
     return this.http
       .post<ApiResponse<void>>(

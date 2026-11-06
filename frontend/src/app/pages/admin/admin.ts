@@ -13,6 +13,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
+import { forkJoin } from 'rxjs';
 import { AdminService } from '../../core/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import {
@@ -24,6 +25,16 @@ import {
 } from '../../core/models/admin.models';
 
 export type AdminSlice = 'users' | 'roles' | 'permissions' | 'organizations';
+export type DetailType = 'user' | 'role' | 'permission' | 'organization';
+
+export interface PermissionGroup {
+  resource: string;
+  displayName: string;
+  description: string;
+  permissions: AdminPermission[];
+  grantedCount: number;
+  totalCount: number;
+}
 
 interface DeleteTarget {
   type: 'user' | 'role' | 'permission' | 'organization';
@@ -91,22 +102,19 @@ export class AdminComponent implements OnInit {
   readonly permissionsDataSource = new MatTableDataSource<AdminPermission>([]);
   readonly organizationsDataSource = new MatTableDataSource<AdminOrganization>([]);
 
-  // Table Columns
+  // Table Columns (Streamlined: unnecessary descriptions & raw IDs moved to Details Panel)
   readonly userColumns = [
     'name',
     'email',
     'organization',
     'roles',
     'status',
-    'createdAt',
     'actions',
   ];
   readonly roleColumns = [
     'name',
     'code',
-    'description',
     'type',
-    'createdAt',
     'actions',
   ];
   readonly permissionColumns = [
@@ -114,13 +122,12 @@ export class AdminComponent implements OnInit {
     'code',
     'resource',
     'action',
-    'description',
+    'actions',
   ];
   readonly organizationColumns = [
     'name',
     'slug',
-    'ownerId',
-    'createdAt',
+    'admin',
     'actions',
   ];
 
@@ -146,6 +153,7 @@ export class AdminComponent implements OnInit {
   readonly showUserRolesModal = signal<boolean>(false);
   readonly showResetPasswordModal = signal<boolean>(false);
   readonly showPasswordText = signal<boolean>(false);
+  readonly showCreateUserPassword = signal<boolean>(false);
 
   readonly showCreateRoleModal = signal<boolean>(false);
   readonly showEditRoleModal = signal<boolean>(false);
@@ -159,6 +167,466 @@ export class AdminComponent implements OnInit {
 
   readonly showDeleteModal = signal<boolean>(false);
   readonly deleteTarget = signal<DeleteTarget | null>(null);
+
+  // Details Dedicated Page State (Replaces table view, no popup slider)
+  readonly showDetailsPage = signal<boolean>(false);
+  // Alias for backward compatibility
+  readonly showDetailsPanel = this.showDetailsPage;
+
+  readonly detailType = signal<DetailType>('user');
+  readonly selectedDetailItem = signal<
+    AdminUser | AdminRole | AdminPermission | AdminOrganization | null
+  >(null);
+  readonly roleDetailPermissions = signal<AdminPermission[]>([]);
+  readonly isDetailLoading = signal<boolean>(false);
+  readonly copiedId = signal<boolean>(false);
+
+  // Search filter for grouped role permissions modal
+  readonly rolePermissionSearch = signal<string>('');
+
+  get userDetail(): AdminUser | null {
+    return this.detailType() === 'user' ? (this.selectedDetailItem() as AdminUser) : null;
+  }
+
+  get roleDetail(): AdminRole | null {
+    return this.detailType() === 'role' ? (this.selectedDetailItem() as AdminRole) : null;
+  }
+
+  get permissionDetail(): AdminPermission | null {
+    return this.detailType() === 'permission'
+      ? (this.selectedDetailItem() as AdminPermission)
+      : null;
+  }
+
+  get orgDetail(): AdminOrganization | null {
+    return this.detailType() === 'organization'
+      ? (this.selectedDetailItem() as AdminOrganization)
+      : null;
+  }
+
+  getOrgAdmin(org: AdminOrganization): AdminUser | null {
+    if (!org) return null;
+    const allUsers = this.users();
+    if (org.ownerId) {
+      const match = allUsers.find((u) => u.id === org.ownerId);
+      if (match) return match;
+    }
+    const orgAdmin = allUsers.find(
+      (u) =>
+        u.organizationId === org.id &&
+        u.roles?.some(
+          (r) =>
+            r.toUpperCase() === 'ADMIN' ||
+            r.toUpperCase() === 'SUPER_ADMIN' ||
+            r.toUpperCase().includes('ADMIN'),
+        ),
+    );
+    if (orgAdmin) return orgAdmin;
+
+    return allUsers.find((u) => u.organizationId === org.id) || null;
+  }
+
+  readonly orgAdminUser = computed<AdminUser | null>(() => {
+    return this.orgDetail ? this.getOrgAdmin(this.orgDetail) : null;
+  });
+
+  // --- Organisation Member Assignment & Role Management ---
+  readonly assignUserSearch = signal<string>('');
+  readonly assignUserDropdownOpen = signal<boolean>(false);
+  readonly selectedAssignUser = signal<AdminUser | null>(null);
+  readonly selectedAssignRoleId = signal<string>('');
+
+  readonly canManageOrgMembers = computed(() => {
+    if (this.authService.isSuperAdmin()) {
+      return true;
+    }
+    const currentOrgId = this.authService.currentUser()?.organizationId;
+    const targetOrg = this.orgDetail;
+    return !!(currentOrgId && targetOrg && currentOrgId === targetOrg.id && this.authService.isAdmin());
+  });
+
+  readonly currentOrgMembers = computed<AdminUser[]>(() => {
+    const org = this.orgDetail;
+    if (!org) return [];
+    return this.users().filter((u) => u.organizationId === org.id);
+  });
+
+  readonly candidateUsersForOrg = computed<AdminUser[]>(() => {
+    const org = this.orgDetail;
+    if (!org) return [];
+    const query = this.assignUserSearch().toLowerCase().trim();
+    return this.users().filter((u) => {
+      if (u.organizationId === org.id) return false;
+      if (!query) return true;
+      const matchName = (u.name || '').toLowerCase().includes(query);
+      const matchEmail = (u.email || '').toLowerCase().includes(query);
+      const matchPhone = (u.mobileNumber || '').toLowerCase().includes(query);
+      return matchName || matchEmail || matchPhone;
+    });
+  });
+
+  readonly assignableRoles = computed<AdminRole[]>(() => {
+    const isSuper = this.authService.isSuperAdmin();
+    const allRoles = this.roles();
+    if (isSuper) return allRoles;
+    return allRoles.filter((r) => r.code?.toUpperCase() !== 'SUPER_ADMIN');
+  });
+
+  readonly orgAdminAvailableOrganizations = computed<AdminOrganization[]>(() => {
+    const isSuper = this.authService.isSuperAdmin();
+    if (isSuper) return this.organizations();
+    const currentOrgId = this.authService.currentUser()?.organizationId;
+    return this.organizations().filter((o) => o.id === currentOrgId);
+  });
+
+  getOrgById(orgId: string): AdminOrganization | undefined {
+    return this.organizations().find((o) => o.id === orgId);
+  }
+
+  getRoleById(roleId: string): AdminRole | undefined {
+    return this.roles().find((r) => r.id === roleId);
+  }
+
+  // --- Edit User Multi-Organisation Selection ---
+  readonly editUserSelectedOrgIds = signal<string[]>([]);
+  readonly editUserOrgSearch = signal<string>('');
+
+  readonly editUserAvailableOrgs = computed<AdminOrganization[]>(() => {
+    const isSuper = this.authService.isSuperAdmin();
+    const sourceOrgs = isSuper ? this.organizations() : this.orgAdminAvailableOrganizations();
+    const query = this.editUserOrgSearch().toLowerCase().trim();
+    if (!query) return sourceOrgs;
+    return sourceOrgs.filter((o) =>
+      (o.name || '').toLowerCase().includes(query) ||
+      (o.slug || '').toLowerCase().includes(query)
+    );
+  });
+
+  toggleEditUserOrg(orgId: string): void {
+    this.editUserSelectedOrgIds.update((ids) => {
+      if (ids.includes(orgId)) {
+        return ids.filter((id) => id !== orgId);
+      } else {
+        return [...ids, orgId];
+      }
+    });
+  }
+
+  removeEditUserOrg(orgId: string): void {
+    this.editUserSelectedOrgIds.update((ids) => ids.filter((id) => id !== orgId));
+  }
+
+  isEditUserOrgSelected(orgId: string): boolean {
+    return this.editUserSelectedOrgIds().includes(orgId);
+  }
+
+  // --- Create User Multi-Organisation & Multi-Role Selection ---
+  readonly createUserSelectedOrgIds = signal<string[]>([]);
+  readonly createUserOrgSearch = signal<string>('');
+
+  readonly createUserAvailableOrgs = computed<AdminOrganization[]>(() => {
+    const isSuper = this.authService.isSuperAdmin();
+    const sourceOrgs = isSuper ? this.organizations() : this.orgAdminAvailableOrganizations();
+    const query = this.createUserOrgSearch().toLowerCase().trim();
+    if (!query) return sourceOrgs;
+    return sourceOrgs.filter((o) =>
+      (o.name || '').toLowerCase().includes(query) ||
+      (o.slug || '').toLowerCase().includes(query)
+    );
+  });
+
+  toggleCreateUserOrg(orgId: string): void {
+    this.createUserSelectedOrgIds.update((ids) => {
+      if (ids.includes(orgId)) {
+        return ids.filter((id) => id !== orgId);
+      } else {
+        return [...ids, orgId];
+      }
+    });
+  }
+
+  removeCreateUserOrg(orgId: string): void {
+    this.createUserSelectedOrgIds.update((ids) => ids.filter((id) => id !== orgId));
+  }
+
+  isCreateUserOrgSelected(orgId: string): boolean {
+    return this.createUserSelectedOrgIds().includes(orgId);
+  }
+
+  readonly createUserSelectedRoleIds = signal<string[]>([]);
+  readonly createUserRoleSearch = signal<string>('');
+
+  readonly createUserAvailableRoles = computed<AdminRole[]>(() => {
+    const sourceRoles = this.assignableRoles();
+    const query = this.createUserRoleSearch().toLowerCase().trim();
+    if (!query) return sourceRoles;
+    return sourceRoles.filter((r) =>
+      (r.name || '').toLowerCase().includes(query) ||
+      (r.code || '').toLowerCase().includes(query)
+    );
+  });
+
+  toggleCreateUserRole(roleId: string): void {
+    this.createUserSelectedRoleIds.update((ids) => {
+      if (ids.includes(roleId)) {
+        return ids.filter((id) => id !== roleId);
+      } else {
+        return [...ids, roleId];
+      }
+    });
+  }
+
+  removeCreateUserRole(roleId: string): void {
+    this.createUserSelectedRoleIds.update((ids) => ids.filter((id) => id !== roleId));
+  }
+
+  isCreateUserRoleSelected(roleId: string): boolean {
+    return this.createUserSelectedRoleIds().includes(roleId);
+  }
+
+  readonly editUserSelectedRoleIds = signal<string[]>([]);
+
+  readonly detailTitle = computed(() => {
+    const item = this.selectedDetailItem();
+    if (!item) return '';
+    return item.name || item.id;
+  });
+
+  readonly activeSliceLabel = computed(() => {
+    switch (this.activeSlice()) {
+      case 'users':
+        return 'Users';
+      case 'roles':
+        return 'Roles';
+      case 'permissions':
+        return 'Permissions';
+      case 'organizations':
+        return 'Organisations';
+    }
+  });
+
+  formatResourceTitle(resource: string): string {
+    const mapping: Record<string, string> = {
+      user: 'User Management',
+      role: 'Role & RBAC Security',
+      organization: 'Organisation Governance',
+      workspace_member: 'Workspace Members',
+      collection: 'API Collections',
+      api: 'API Requests & Endpoints',
+      environment: 'Environments & Variables',
+      test_case: 'Test Cases & Assertions',
+      workflow: 'Workflows & Automation',
+      '*': 'System Superuser Wildcard',
+    };
+    return mapping[resource.toLowerCase()] || resource.toUpperCase();
+  }
+
+  getResourceDescription(resource: string): string {
+    const mapping: Record<string, string> = {
+      user: 'Permissions to view, create, edit, and manage user accounts and profiles.',
+      role: 'Permissions to define roles, configure permissions, and govern RBAC policies.',
+      organization: 'Permissions to govern organization profiles, billing, and settings.',
+      workspace_member: 'Permissions to invite, manage, and remove workspace members.',
+      collection: 'Permissions to organize API endpoints into collections and folders.',
+      api: 'Permissions to create, modify, execute, and delete API requests.',
+      environment: 'Permissions to manage environments, global parameters, and secrets.',
+      test_case: 'Permissions to build and execute automated test assertions.',
+      workflow: 'Permissions to create and run chained multi-step API workflows.',
+      '*': 'Full sovereign bypass across all platform resources and operations.',
+    };
+    return mapping[resource.toLowerCase()] || `Permissions governing ${resource}.`;
+  }
+
+  readonly permissionGroups = computed<PermissionGroup[]>(() => {
+    const allPerms = this.permissions();
+    const rolePerms = this.selectedRolePermissions();
+    const rolePermIds = new Set(rolePerms.map((p) => p.id));
+    const query = this.rolePermissionSearch().toLowerCase().trim();
+
+    // Group by resource
+    const groupsMap = new Map<string, AdminPermission[]>();
+    for (const perm of allPerms) {
+      if (query) {
+        const matchesName = (perm.name || '').toLowerCase().includes(query);
+        const matchesCode = (perm.code || '').toLowerCase().includes(query);
+        const matchesResource = (perm.resource || '').toLowerCase().includes(query);
+        const matchesAction = (perm.action || '').toLowerCase().includes(query);
+        const matchesDesc = (perm.description || '').toLowerCase().includes(query);
+        if (!matchesName && !matchesCode && !matchesResource && !matchesAction && !matchesDesc) {
+          continue;
+        }
+      }
+
+      const res = (perm.resource || 'other').toLowerCase();
+      if (!groupsMap.has(res)) {
+        groupsMap.set(res, []);
+      }
+      groupsMap.get(res)!.push(perm);
+    }
+
+    const resourceOrder = [
+      'organization',
+      'user',
+      'role',
+      'workspace_member',
+      'collection',
+      'api',
+      'environment',
+      'workflow',
+      'test_case',
+      '*',
+    ];
+
+    const sortedKeys = Array.from(groupsMap.keys()).sort((a, b) => {
+      const idxA = resourceOrder.indexOf(a.toLowerCase());
+      const idxB = resourceOrder.indexOf(b.toLowerCase());
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    const result: PermissionGroup[] = [];
+    for (const key of sortedKeys) {
+      const perms = groupsMap.get(key)!;
+      const actionOrder = ['read', 'create', 'update', 'delete', '*'];
+      perms.sort((a, b) => {
+        const actA = actionOrder.indexOf((a.action || '').toLowerCase());
+        const actB = actionOrder.indexOf((b.action || '').toLowerCase());
+        if (actA !== -1 && actB !== -1) return actA - actB;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      const grantedCount = perms.filter((p) => rolePermIds.has(p.id)).length;
+
+      result.push({
+        resource: key,
+        displayName: this.formatResourceTitle(key),
+        description: this.getResourceDescription(key),
+        permissions: perms,
+        grantedCount,
+        totalCount: perms.length,
+      });
+    }
+
+    return result;
+  });
+
+  readonly roleDetailGroupedPermissions = computed(() => {
+    const perms = this.roleDetailPermissions();
+    const groupsMap = new Map<string, AdminPermission[]>();
+    for (const p of perms) {
+      const res = (p.resource || 'other').toLowerCase();
+      if (!groupsMap.has(res)) {
+        groupsMap.set(res, []);
+      }
+      groupsMap.get(res)!.push(p);
+    }
+
+    return Array.from(groupsMap.entries()).map(([resource, list]) => ({
+      resource,
+      displayName: this.formatResourceTitle(resource),
+      permissions: list,
+    }));
+  });
+
+  openDetailsPage(
+    type: DetailType,
+    item: AdminUser | AdminRole | AdminPermission | AdminOrganization,
+  ): void {
+    this.detailType.set(type);
+    this.selectedDetailItem.set(item);
+    this.showDetailsPage.set(true);
+    this.copiedId.set(false);
+
+    if (type === 'role') {
+      this.isDetailLoading.set(true);
+      this.adminService.getRolePermissions(item.id).subscribe({
+        next: (perms) => {
+          this.roleDetailPermissions.set(perms);
+          this.isDetailLoading.set(false);
+        },
+        error: () => {
+          this.roleDetailPermissions.set([]);
+          this.isDetailLoading.set(false);
+        },
+      });
+    }
+  }
+
+  // Backward compatibility alias
+  openDetailsPanel(
+    type: DetailType,
+    item: AdminUser | AdminRole | AdminPermission | AdminOrganization,
+  ): void {
+    this.openDetailsPage(type, item);
+  }
+
+  closeDetailsPage(): void {
+    this.showDetailsPage.set(false);
+    this.selectedDetailItem.set(null);
+    this.roleDetailPermissions.set([]);
+    this.copiedId.set(false);
+  }
+
+  // Backward compatibility alias
+  closeDetailsPanel(): void {
+    this.closeDetailsPage();
+  }
+
+  toggleGroupPermissions(group: PermissionGroup, grant: boolean): void {
+    const role = this.selectedRole();
+    if (!role) {
+      return;
+    }
+
+    const currentGrantedIds = new Set(this.selectedRolePermissions().map((p) => p.id));
+    const targetPerms = grant
+      ? group.permissions.filter((p) => !currentGrantedIds.has(p.id))
+      : group.permissions.filter((p) => currentGrantedIds.has(p.id));
+
+    if (targetPerms.length === 0) {
+      return;
+    }
+
+    this.isLoading.set(true);
+    const requests$ = targetPerms.map((perm) =>
+      grant
+        ? this.adminService.grantPermissionToRole(role.id, perm.id)
+        : this.adminService.revokePermissionFromRole(role.id, perm.id),
+    );
+
+    forkJoin(requests$).subscribe({
+      next: () => {
+        if (grant) {
+          this.selectedRolePermissions.update((list) => {
+            const existingIds = new Set(list.map((p) => p.id));
+            const toAdd = targetPerms.filter((p) => !existingIds.has(p.id));
+            return [...list, ...toAdd];
+          });
+          this.feedbackMessage.set(`Granted all ${group.displayName} permissions to role`);
+        } else {
+          const targetIds = new Set(targetPerms.map((p) => p.id));
+          this.selectedRolePermissions.update((list) => list.filter((p) => !targetIds.has(p.id)));
+          this.feedbackMessage.set(`Revoked all ${group.displayName} permissions from role`);
+        }
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set(`Failed to update ${group.displayName} permissions for role`);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  copyIdToClipboard(id: string): void {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(id).then(() => {
+        this.copiedId.set(true);
+        setTimeout(() => this.copiedId.set(false), 2000);
+      });
+    }
+  }
 
   // Forms
   readonly createUserForm: FormGroup = this.fb.group({
@@ -269,6 +737,7 @@ export class AdminComponent implements OnInit {
     this.showUserRolesModal.set(false);
     this.showResetPasswordModal.set(false);
     this.showPasswordText.set(false);
+    this.showCreateUserPassword.set(false);
     this.showCreateRoleModal.set(false);
     this.showEditRoleModal.set(false);
     this.showRolePermissionsModal.set(false);
@@ -276,6 +745,11 @@ export class AdminComponent implements OnInit {
     this.showCreateOrgModal.set(false);
     this.showEditOrgModal.set(false);
     this.showDeleteModal.set(false);
+    this.showDetailsPanel.set(false);
+    this.selectedDetailItem.set(null);
+    this.roleDetailPermissions.set([]);
+    this.copiedId.set(false);
+    this.rolePermissionSearch.set('');
     this.feedbackMessage.set(null);
     this.errorMessage.set(null);
   }
@@ -567,7 +1041,16 @@ export class AdminComponent implements OnInit {
 
     switch (this.activeSlice()) {
       case 'users':
-        this.createUserForm.reset({ roleId: '' });
+        this.createUserForm.reset();
+        this.createUserOrgSearch.set('');
+        this.createUserRoleSearch.set('');
+        this.showCreateUserPassword.set(false);
+        if (!this.authService.isSuperAdmin() && this.authService.currentUser()?.organizationId) {
+          this.createUserSelectedOrgIds.set([this.authService.currentUser()!.organizationId!]);
+        } else {
+          this.createUserSelectedOrgIds.set([]);
+        }
+        this.createUserSelectedRoleIds.set([]);
         this.showCreateUserModal.set(true);
         break;
       case 'roles':
@@ -590,14 +1073,18 @@ export class AdminComponent implements OnInit {
 
     this.isLoading.set(true);
     const formVal = this.createUserForm.value;
+    const orgIds = this.createUserSelectedOrgIds();
+    const roleIds = this.createUserSelectedRoleIds();
     this.adminService
       .createUser({
         name: formVal.name,
         email: formVal.email,
         password: formVal.password,
         mobileNumber: formVal.mobileNumber || undefined,
-        organizationId: formVal.organizationId || undefined,
-        roleId: formVal.roleId || undefined,
+        organizationId: orgIds.length > 0 ? orgIds[0] : undefined,
+        organizationIds: orgIds.length > 0 ? orgIds : undefined,
+        roleId: roleIds.length > 0 ? roleIds[0] : undefined,
+        roleIds: roleIds.length > 0 ? roleIds : undefined,
       })
       .subscribe({
         next: () => {
@@ -612,14 +1099,149 @@ export class AdminComponent implements OnInit {
       });
   }
 
+  selectAssignUser(user: AdminUser): void {
+    this.selectedAssignUser.set(user);
+    this.assignUserDropdownOpen.set(false);
+    this.assignUserSearch.set('');
+  }
+
+  clearAssignUser(): void {
+    this.selectedAssignUser.set(null);
+    this.assignUserDropdownOpen.set(false);
+    this.assignUserSearch.set('');
+  }
+
+  assignUserToCurrentOrg(): void {
+    const user = this.selectedAssignUser();
+    const org = this.orgDetail;
+    if (!user || !org) return;
+
+    this.isLoading.set(true);
+    const roleId = this.selectedAssignRoleId();
+    const roleIds = roleId ? [roleId] : undefined;
+
+    this.adminService
+      .updateUser(user.id, {
+        organizationId: org.id,
+        roleIds,
+      })
+      .subscribe({
+        next: (updatedUser) => {
+          this.users.update((list) =>
+            list.map((u) =>
+              u.id === user.id
+                ? {
+                    ...u,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    organizationSlug: org.slug,
+                    roles: updatedUser.roles || u.roles,
+                  }
+                : u,
+            ),
+          );
+          this.selectedAssignUser.set(null);
+          this.selectedAssignRoleId.set('');
+          this.assignUserSearch.set('');
+          this.feedbackMessage.set(`Successfully assigned ${user.name} to ${org.name}`);
+          this.isLoading.set(false);
+          this.loadUsers();
+        },
+        error: (err) => {
+          this.errorMessage.set(err?.error?.message || `Failed to assign user to ${org.name}`);
+          this.isLoading.set(false);
+        },
+      });
+  }
+
+  removeUserFromOrg(user: AdminUser): void {
+    const org = this.orgDetail;
+    if (!org) return;
+
+    this.isLoading.set(true);
+    this.adminService
+      .updateUser(user.id, {
+        clearOrganization: true,
+      })
+      .subscribe({
+        next: () => {
+          this.users.update((list) =>
+            list.map((u) =>
+              u.id === user.id
+                ? {
+                    ...u,
+                    organizationId: undefined,
+                    organizationName: undefined,
+                    organizationSlug: undefined,
+                  }
+                : u,
+            ),
+          );
+          this.feedbackMessage.set(`Removed ${user.name} from ${org.name}`);
+          this.isLoading.set(false);
+          this.loadUsers();
+        },
+        error: (err) => {
+          this.errorMessage.set(err?.error?.message || `Failed to remove user from ${org.name}`);
+          this.isLoading.set(false);
+        },
+      });
+  }
+
+  changeMemberRole(user: AdminUser, newRoleId: string): void {
+    if (!newRoleId) return;
+    this.isLoading.set(true);
+    this.adminService.setUserRoles(user.id, [newRoleId]).subscribe({
+      next: () => {
+        const targetRole = this.roles().find((r) => r.id === newRoleId);
+        const roleCodes = targetRole ? [targetRole.code] : [];
+        this.users.update((list) =>
+          list.map((u) => (u.id === user.id ? { ...u, roles: roleCodes } : u)),
+        );
+        this.feedbackMessage.set(
+          `Updated role for ${user.name} to ${targetRole?.name || targetRole?.code}`,
+        );
+        this.isLoading.set(false);
+        this.loadUsers();
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.error?.message || `Failed to update role for ${user.name}`);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  toggleEditUserRole(roleId: string): void {
+    this.editUserSelectedRoleIds.update((ids) => {
+      if (ids.includes(roleId)) {
+        return ids.filter((id) => id !== roleId);
+      } else {
+        return [...ids, roleId];
+      }
+    });
+  }
+
+  isEditUserRoleSelected(roleId: string): boolean {
+    return this.editUserSelectedRoleIds().includes(roleId);
+  }
+
   openEditUser(user: AdminUser): void {
     this.selectedUser.set(user);
     this.editUserForm.patchValue({
       name: user.name,
       email: user.email,
       mobileNumber: user.mobileNumber || '',
-      organizationId: user.organizationId || '',
     });
+
+    this.editUserOrgSearch.set('');
+    if (user.organizations && user.organizations.length > 0) {
+      this.editUserSelectedOrgIds.set(user.organizations.map((o) => o.id));
+    } else if (user.organizationId) {
+      this.editUserSelectedOrgIds.set([user.organizationId]);
+    } else {
+      this.editUserSelectedOrgIds.set([]);
+    }
+
     this.showEditUserModal.set(true);
   }
 
@@ -632,15 +1254,17 @@ export class AdminComponent implements OnInit {
 
     this.isLoading.set(true);
     const formVal = this.editUserForm.value;
-    const orgId = formVal.organizationId ? formVal.organizationId : undefined;
-    const clearOrg = !formVal.organizationId && !!user.organizationId;
+    const orgIds = this.editUserSelectedOrgIds();
+    const primaryOrgId = orgIds.length > 0 ? orgIds[0] : undefined;
+    const clearOrg = orgIds.length === 0 && !!user.organizationId;
 
     this.adminService
       .updateUser(user.id, {
         name: formVal.name,
         email: formVal.email,
         mobileNumber: formVal.mobileNumber || undefined,
-        organizationId: orgId,
+        organizationId: primaryOrgId,
+        organizationIds: orgIds,
         clearOrganization: clearOrg,
       })
       .subscribe({
@@ -660,6 +1284,7 @@ export class AdminComponent implements OnInit {
     this.selectedUser.set(user);
     this.resetPasswordForm.reset();
     this.showPasswordText.set(false);
+    this.showCreateUserPassword.set(false);
     this.showResetPasswordModal.set(true);
   }
 
@@ -813,6 +1438,7 @@ export class AdminComponent implements OnInit {
 
   openManageRolePermissions(role: AdminRole): void {
     this.selectedRole.set(role);
+    this.rolePermissionSearch.set('');
     this.isLoading.set(true);
     this.adminService.getRolePermissions(role.id).subscribe({
       next: (perms) => {
