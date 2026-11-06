@@ -74,6 +74,17 @@ export function getResourceDescription(resource: string): string {
   return RESOURCE_DESCRIPTIONS[resource.toLowerCase()] || `Permissions governing ${resource}.`;
 }
 
+export function isWildcardPermission(p?: AdminPermission | null): boolean {
+  if (!p) return false;
+  return (
+    p.code === '*' ||
+    p.resource === '*' ||
+    p.action === '*' ||
+    (p.name || '').toLowerCase().includes('wildcard') ||
+    (p.code || '').toLowerCase() === 'all'
+  );
+}
+
 export function groupPermissionsByResource(
   allPerms: AdminPermission[],
   rolePerms: AdminPermission[],
@@ -84,6 +95,9 @@ export function groupPermissionsByResource(
 
   const groupsMap = new Map<string, AdminPermission[]>();
   for (const perm of allPerms) {
+    if (isWildcardPermission(perm)) {
+      continue;
+    }
     if (query) {
       const matchesName = (perm.name || '').toLowerCase().includes(query);
       const matchesCode = (perm.code || '').toLowerCase().includes(query);
@@ -138,6 +152,9 @@ export function groupPermissionsByResource(
 export function groupRoleDetailPermissions(perms: AdminPermission[]) {
   const groupsMap = new Map<string, AdminPermission[]>();
   for (const p of perms) {
+    if (isWildcardPermission(p)) {
+      continue;
+    }
     const res = (p.resource || 'other').toLowerCase();
     if (!groupsMap.has(res)) {
       groupsMap.set(res, []);

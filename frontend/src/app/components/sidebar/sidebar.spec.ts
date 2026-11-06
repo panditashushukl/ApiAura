@@ -46,6 +46,10 @@ describe('SidebarComponent', () => {
 
     const adminLink = fixture.nativeElement.querySelector('#sidebar-admin-link');
     expect(adminLink).toBeNull();
+
+    const profileLink = fixture.nativeElement.querySelector('#sidebar-profile-link');
+    expect(profileLink).toBeTruthy();
+    expect(profileLink.textContent).toContain('Profile');
   });
 
   it('should display Admin navigation option when user is an admin', () => {

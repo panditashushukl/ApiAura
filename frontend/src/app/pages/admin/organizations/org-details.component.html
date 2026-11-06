@@ -302,35 +302,37 @@
             <div class="flex items-center gap-2 self-end sm:self-auto">
               <!-- Current Roles Badges -->
               <div class="flex flex-wrap items-center gap-1 mr-2">
-                @for (role of (member.roles || []); track role) {
+                @for (role of getVisibleRoles(member); track role) {
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-surface border border-app text-secondary">
                     {{ role }}
                   </span>
                 }
               </div>
 
-              <!-- Change Role Dropdown -->
-              <select
-                (change)="onMemberRoleChange(member, $event)"
-                class="px-2.5 py-1 text-[11px] rounded-lg bg-surface border border-app text-secondary focus:outline-none focus:border-bhagwa-500 cursor-pointer"
-              >
-                <option value="">Change Role...</option>
-                @for (r of assignableRoles(); track r.id) {
-                  <option [value]="r.id">{{ r.name }}</option>
-                }
-              </select>
+              @if (canManageMember(member)) {
+                <!-- Change Role Dropdown -->
+                <select
+                  (change)="onMemberRoleChange(member, $event)"
+                  class="px-2.5 py-1 text-[11px] rounded-lg bg-surface border border-app text-secondary focus:outline-none focus:border-bhagwa-500 cursor-pointer"
+                >
+                  <option value="">Change Role...</option>
+                  @for (r of assignableRoles(); track r.id) {
+                    <option [value]="r.id">{{ r.name }}</option>
+                  }
+                </select>
 
-              <!-- Remove from Org -->
-              <button
-                type="button"
-                (click)="removeUser.emit(member)"
-                title="Remove Member from Organisation"
-                class="p-1.5 rounded-lg text-secondary hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </button>
+                <!-- Remove from Org -->
+                <button
+                  type="button"
+                  (click)="removeUser.emit(member)"
+                  title="Remove Member from Organisation"
+                  class="p-1.5 rounded-lg text-secondary hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              }
             </div>
           </div>
         } @empty {

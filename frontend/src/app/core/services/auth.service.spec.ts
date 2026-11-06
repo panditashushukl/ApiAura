@@ -205,4 +205,99 @@ describe('AuthService', () => {
     expect(call2Done).toBe(true);
     expect(service.currentUser()?.name).toBe('Shared User');
   });
+
+  it('should update profile and update currentUser signal', () => {
+    service.currentUser.set({
+      id: 'u-1',
+      name: 'Old Name',
+      email: 'user@example.com',
+    });
+
+    service.updateProfile({ name: 'New Name', mobileNumber: '1234567890' }).subscribe((user) => {
+      expect(user.name).toBe('New Name');
+      expect(user.mobileNumber).toBe('1234567890');
+    });
+
+    const req = httpTesting.expectOne('http://localhost:8080/api/v1/users/me');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ name: 'New Name', mobileNumber: '1234567890' });
+
+    req.flush({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        id: 'u-1',
+        name: 'New Name',
+        email: 'user@example.com',
+        mobileNumber: '1234567890',
+      },
+    });
+
+    expect(service.currentUser()?.name).toBe('New Name');
+    expect(service.currentUser()?.mobileNumber).toBe('1234567890');
+  });
+
+  it('should change password via POST /users/me/change-password', () => {
+    service.changePassword({ currentPassword: 'old', newPassword: 'newPassword123' }).subscribe((msg) => {
+      expect(msg).toBe('Password changed successfully.');
+    });
+
+    const req = httpTesting.expectOne('http://localhost:8080/api/v1/users/me/change-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ currentPassword: 'old', newPassword: 'newPassword123' });
+
+    req.flush({
+      success: true,
+      message: 'Password changed successfully.',
+    });
+  });
+
+  it('should create organization via POST /organizations and refresh session', () => {
+    service.currentUser.set({
+      id: 'u-1',
+      name: 'Owner User',
+      email: 'owner@example.com',
+    });
+
+    service.createOrganization({ name: 'New Org', slug: 'new-org' }).subscribe((org) => {
+      expect(org.name).toBe('New Org');
+    });
+
+    const createReq = httpTesting.expectOne('http://localhost:8080/api/v1/organizations');
+    expect(createReq.request.method).toBe('POST');
+    expect(createReq.request.body).toEqual({ name: 'New Org', slug: 'new-org' });
+
+    createReq.flush({
+      success: true,
+      message: 'Organization created',
+      data: {
+        id: 'org-created',
+        name: 'New Org',
+        slug: 'new-org',
+      },
+    });
+
+    // checkAuth and loadUserOrganizations triggered
+    const checkAuthReq = httpTesting.expectOne('http://localhost:8080/api/v1/users/me');
+    checkAuthReq.flush({
+      success: true,
+      data: {
+        id: 'u-1',
+        name: 'Owner User',
+        email: 'owner@example.com',
+        organizationName: 'New Org',
+        organizationId: 'org-created',
+        roles: ['ADMIN'],
+      },
+    });
+
+    const loadOrgsReq = httpTesting.expectOne('http://localhost:8080/api/v1/organizations');
+    loadOrgsReq.flush({
+      success: true,
+      data: [{ id: 'org-created', name: 'New Org', slug: 'new-org' }],
+    });
+
+    expect(service.currentUser()?.organizationName).toBe('New Org');
+    expect(service.userOrganizations().length).toBe(1);
+  });
 });

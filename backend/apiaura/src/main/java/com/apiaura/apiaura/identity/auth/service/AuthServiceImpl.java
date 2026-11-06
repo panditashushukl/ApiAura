@@ -205,7 +205,13 @@ public class AuthServiceImpl implements AuthService {
         user.setMobileNumber(mobileNumber);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setStatus(UserStatus.ACTIVE);
-        user.setOrganization(organization);
+        if (organization != null) {
+            if (user.getOrganizations() == null) {
+                user.setOrganizations(new java.util.HashSet<>());
+            }
+            user.getOrganizations().add(organization);
+            user.setOrganization(organization);
+        }
 
         user = userRepository.save(user);
 

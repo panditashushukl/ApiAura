@@ -224,6 +224,10 @@ public class RbacServiceImpl implements RbacService {
                                 )
                         );
 
+        if (isWildcard(permission)) {
+            throw new BadRequestException("Wildcard permission cannot be assigned to roles");
+        }
+
         if (rolePermissionRepository
                 .existsByRoleIdAndPermissionId(
                         roleId,
@@ -270,6 +274,15 @@ public class RbacServiceImpl implements RbacService {
                 );
     }
 
+    private boolean isWildcard(Permission permission) {
+        if (permission == null) {
+            return false;
+        }
+        return "*".equals(permission.getCode())
+                || "*".equals(permission.getResource())
+                || "*".equals(permission.getAction());
+    }
+
     @Override
     public List<PermissionResponse> getRolePermissions(
             UUID roleId
@@ -281,6 +294,7 @@ public class RbacServiceImpl implements RbacService {
                 .findByRoleId(roleId)
                 .stream()
                 .map(RolePermission::getPermission)
+                .filter(p -> !isWildcard(p))
                 .map(PermissionResponse::from)
                 .toList();
     }

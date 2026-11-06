@@ -116,5 +116,115 @@ class UserResponseTest {
         assertThat(response.getRoles()).containsExactly("GUEST");
         assertThat(response.getPermissions()).isEmpty();
     }
+
+    @Test
+    @DisplayName("Should hide wildcard permission (*) from user response permissions list")
+    void shouldFilterWildcardPermissionFromResponse() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Super Admin User");
+        user.setEmail("super@apiaura.com");
+        user.setStatus(UserStatus.ACTIVE);
+
+        Permission wildcardPerm = new Permission();
+        wildcardPerm.setId(UUID.randomUUID());
+        wildcardPerm.setCode("*");
+        wildcardPerm.setResource("*");
+        wildcardPerm.setAction("*");
+
+        Permission regularPerm = new Permission();
+        regularPerm.setId(UUID.randomUUID());
+        regularPerm.setCode("user:read");
+        regularPerm.setResource("user");
+        regularPerm.setAction("read");
+
+        Role role = new Role();
+        role.setId(UUID.randomUUID());
+        role.setCode("SUPER_ADMIN");
+        role.setName("Super Admin");
+
+        RolePermission rp1 = new RolePermission();
+        rp1.setRole(role);
+        rp1.setPermission(wildcardPerm);
+
+        RolePermission rp2 = new RolePermission();
+        rp2.setRole(role);
+        rp2.setPermission(regularPerm);
+
+        role.setPermissions(new HashSet<>(Set.of(rp1, rp2)));
+
+        UserRole userRole = new UserRole();
+        userRole.setUser(user);
+        userRole.setRole(role);
+
+        user.setRoles(new HashSet<>(Set.of(userRole)));
+
+        UserResponse response = UserResponse.from(user);
+
+        assertThat(response.getPermissions())
+                .doesNotContain("*")
+                .containsExactly("user:read");
+    }
+
+    @Test
+    @DisplayName("Should include all organizations when user belongs to multiple organizations")
+    void shouldIncludeAllOrganizations() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Multi Org User");
+        user.setEmail("multiorg@apiaura.com");
+        user.setStatus(UserStatus.ACTIVE);
+
+        com.apiaura.apiaura.org.organization.entity.Organization org1 = new com.apiaura.apiaura.org.organization.entity.Organization();
+        org1.setId(UUID.randomUUID());
+        org1.setName("Org 1");
+        org1.setSlug("org-1");
+
+        com.apiaura.apiaura.org.organization.entity.Organization org2 = new com.apiaura.apiaura.org.organization.entity.Organization();
+        org2.setId(UUID.randomUUID());
+        org2.setName("Org 2");
+        org2.setSlug("org-2");
+
+        // User belongs to org1 in set, and currently active org2 in single reference
+        user.setOrganizations(new HashSet<>(Set.of(org1)));
+        user.setOrganization(org2);
+
+        UserResponse response = UserResponse.from(user);
+
+        assertThat(response.getOrganizations()).hasSize(2);
+        assertThat(response.getOrganizations())
+                .extracting(UserResponse.UserOrganizationInfo::getId)
+                .containsExactlyInAnyOrder(org1.getId(), org2.getId());
+    }
+
+    @Test
+    @DisplayName("Should include owned organizations in organizations list even if not in organizations set")
+    void shouldIncludeOwnedOrganizations() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Owner User");
+        user.setEmail("owner@apiaura.com");
+        user.setStatus(UserStatus.ACTIVE);
+
+        com.apiaura.apiaura.org.organization.entity.Organization ownedOrg1 = new com.apiaura.apiaura.org.organization.entity.Organization();
+        ownedOrg1.setId(UUID.randomUUID());
+        ownedOrg1.setName("Owned Org 1");
+        ownedOrg1.setSlug("owned-org-1");
+
+        com.apiaura.apiaura.org.organization.entity.Organization ownedOrg2 = new com.apiaura.apiaura.org.organization.entity.Organization();
+        ownedOrg2.setId(UUID.randomUUID());
+        ownedOrg2.setName("Owned Org 2");
+        ownedOrg2.setSlug("owned-org-2");
+
+        user.setOwnedOrganizations(new HashSet<>(Set.of(ownedOrg1, ownedOrg2)));
+        user.setOrganization(ownedOrg1);
+
+        UserResponse response = UserResponse.from(user);
+
+        assertThat(response.getOrganizations()).hasSize(2);
+        assertThat(response.getOrganizations())
+                .extracting(UserResponse.UserOrganizationInfo::getId)
+                .containsExactlyInAnyOrder(ownedOrg1.getId(), ownedOrg2.getId());
+    }
 }
 

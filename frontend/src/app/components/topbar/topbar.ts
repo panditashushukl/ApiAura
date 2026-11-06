@@ -1,5 +1,6 @@
 import { Component, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../core/services/theme.service';
 import { AuthModalService } from '../../core/services/auth-modal.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -8,7 +9,7 @@ import { LogoComponent } from '../logo/logo';
 
 @Component({
   selector: 'app-topbar',
-  imports: [CommonModule, LogoComponent],
+  imports: [CommonModule, RouterLink, LogoComponent],
   templateUrl: './topbar.html',
   styleUrl: './topbar.css',
 })

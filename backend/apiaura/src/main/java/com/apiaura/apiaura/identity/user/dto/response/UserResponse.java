@@ -64,7 +64,10 @@ public class UserResponse {
                         if (ur.getRole().getPermissions() != null) {
                             ur.getRole().getPermissions().forEach(rp -> {
                                 if (rp.getPermission() != null && rp.getPermission().getCode() != null) {
-                                    permissionCodes.add(rp.getPermission().getCode());
+                                    String code = rp.getPermission().getCode();
+                                    if (!"*".equals(code) && !"*".equals(rp.getPermission().getResource()) && !"*".equals(rp.getPermission().getAction())) {
+                                        permissionCodes.add(code);
+                                    }
                                 }
                             });
                         }
@@ -90,11 +93,27 @@ public class UserResponse {
                 orgId = user.getOrganization().getId();
                 orgName = user.getOrganization().getName();
                 orgSlug = user.getOrganization().getSlug();
+            } else if (user.getOrganizations() != null && !user.getOrganizations().isEmpty()) {
+                var first = user.getOrganizations().iterator().next();
+                if (first != null) {
+                    orgId = first.getId();
+                    orgName = first.getName();
+                    orgSlug = first.getSlug();
+                }
+            } else if (user.getOwnedOrganizations() != null && !user.getOwnedOrganizations().isEmpty()) {
+                var first = user.getOwnedOrganizations().iterator().next();
+                if (first != null) {
+                    orgId = first.getId();
+                    orgName = first.getName();
+                    orgSlug = first.getSlug();
+                }
             }
 
-            if (user.getOrganizations() != null) {
-                user.getOrganizations().forEach(o -> {
-                    if (o != null) {
+            java.util.Set<UUID> addedOrgIds = new java.util.HashSet<>();
+
+            if (user.getOwnedOrganizations() != null) {
+                user.getOwnedOrganizations().forEach(o -> {
+                    if (o != null && o.getId() != null && addedOrgIds.add(o.getId())) {
                         organizationInfos.add(UserOrganizationInfo.builder()
                                 .id(o.getId())
                                 .name(o.getName())
@@ -103,7 +122,18 @@ public class UserResponse {
                     }
                 });
             }
-            if (organizationInfos.isEmpty() && user.getOrganization() != null) {
+            if (user.getOrganizations() != null) {
+                user.getOrganizations().forEach(o -> {
+                    if (o != null && o.getId() != null && addedOrgIds.add(o.getId())) {
+                        organizationInfos.add(UserOrganizationInfo.builder()
+                                .id(o.getId())
+                                .name(o.getName())
+                                .slug(o.getSlug())
+                                .build());
+                    }
+                });
+            }
+            if (user.getOrganization() != null && user.getOrganization().getId() != null && addedOrgIds.add(user.getOrganization().getId())) {
                 organizationInfos.add(UserOrganizationInfo.builder()
                         .id(user.getOrganization().getId())
                         .name(user.getOrganization().getName())

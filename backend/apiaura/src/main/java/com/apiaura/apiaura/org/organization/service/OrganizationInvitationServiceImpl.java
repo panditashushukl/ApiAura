@@ -239,6 +239,13 @@ public class OrganizationInvitationServiceImpl implements OrganizationInvitation
         }
 
         // Set organization
+        if (currentUser.getOrganizations() == null) {
+            currentUser.setOrganizations(new java.util.HashSet<>());
+        }
+        if (currentUser.getOrganization() != null) {
+            currentUser.getOrganizations().add(currentUser.getOrganization());
+        }
+        currentUser.getOrganizations().add(invitation.getOrganization());
         currentUser.setOrganization(invitation.getOrganization());
 
         // Assign Role if not already present

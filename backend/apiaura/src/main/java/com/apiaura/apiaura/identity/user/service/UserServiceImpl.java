@@ -261,6 +261,9 @@ public class UserServiceImpl implements UserService {
                     user.getOrganizations().add(org);
                 });
             }
+            if (user.getOwnedOrganizations() != null) {
+                user.getOrganizations().addAll(user.getOwnedOrganizations());
+            }
             if (!user.getOrganizations().isEmpty()) {
                 if (user.getOrganization() == null || !user.getOrganizations().contains(user.getOrganization())) {
                     user.setOrganization(user.getOrganizations().iterator().next());

@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { TopbarComponent } from './topbar';
 import { ThemeService } from '../../core/services/theme.service';
 import { AuthModalService } from '../../core/services/auth-modal.service';
@@ -14,7 +15,7 @@ describe('TopbarComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TopbarComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     themeService = TestBed.inject(ThemeService);
@@ -132,6 +133,8 @@ describe('TopbarComponent', () => {
       expect(dropdown).toBeTruthy();
       expect(dropdown.textContent).toContain('Alex Johnson');
       expect(dropdown.textContent).toContain('alex@example.com');
+      expect(dropdown.textContent).toContain('Profile Settings');
+      expect(dropdown.querySelector('#topbar-profile-link')).toBeTruthy();
       expect(dropdown.textContent).toContain('Sign out');
 
       // Click sign out

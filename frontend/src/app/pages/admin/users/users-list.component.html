@@ -44,7 +44,7 @@
       <th mat-header-cell *matHeaderCellDef>Roles</th>
       <td mat-cell *matCellDef="let user">
         <div class="flex flex-wrap items-center gap-1">
-          @for (role of (user.roles || []).slice(0, 2); track role) {
+          @for (role of getVisibleRoles(user).slice(0, 2); track role) {
             <span
               class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
               [class.bg-bhagwa-500/15]="role === 'ADMIN' || role === 'SUPER_ADMIN'"
@@ -58,10 +58,13 @@
               {{ role }}
             </span>
           }
-          @if ((user.roles?.length || 0) > 2) {
+          @if (getVisibleRoles(user).length > 2) {
             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-subtle text-muted border border-app">
-              +{{ (user.roles?.length || 0) - 2 }}
+              +{{ getVisibleRoles(user).length - 2 }}
             </span>
+          }
+          @if (getVisibleRoles(user).length === 0) {
+            <span class="text-xs text-muted italic">—</span>
           }
         </div>
       </td>
@@ -96,88 +99,92 @@
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
       <td mat-cell *matCellDef="let user" class="text-right whitespace-nowrap">
-        <div class="inline-flex items-center gap-1">
-          <!-- View Details -->
-          <button
-            type="button"
-            (click)="viewDetails.emit(user)"
-            title="View Details"
-            class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
-            [attr.id]="'btn-view-user-' + user.id"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-
-          <!-- Toggle Status -->
-          <button
-            type="button"
-            (click)="toggleStatus.emit(user)"
-            [title]="user.status === 'ACTIVE' ? 'Suspend User' : 'Activate User'"
-            class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
-          >
-            @if (user.status === 'ACTIVE') {
-              <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        @if (canShowUserActions(user)) {
+          <div class="inline-flex items-center gap-1">
+            <!-- View Details -->
+            <button
+              type="button"
+              (click)="viewDetails.emit(user)"
+              title="View Details"
+              class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+              [attr.id]="'btn-view-user-' + user.id"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-            } @else {
-              <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </button>
+
+            <!-- Toggle Status -->
+            <button
+              type="button"
+              (click)="toggleStatus.emit(user)"
+              [title]="user.status === 'ACTIVE' ? 'Suspend User' : 'Activate User'"
+              class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+            >
+              @if (user.status === 'ACTIVE') {
+                <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              } @else {
+                <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+            </button>
+
+            <!-- Manage Roles -->
+            <button
+              type="button"
+              (click)="manageRoles.emit(user)"
+              title="Manage Roles"
+              class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-            }
-          </button>
+            </button>
 
-          <!-- Manage Roles -->
-          <button
-            type="button"
-            (click)="manageRoles.emit(user)"
-            title="Manage Roles"
-            class="p-1.5 rounded-lg text-secondary hover:text-bhagwa hover:bg-bhagwa-500/10 transition-colors cursor-pointer"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          </button>
+            <!-- Reset Password -->
+            <button
+              type="button"
+              (click)="resetPassword.emit(user)"
+              title="Reset Password"
+              class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </button>
 
-          <!-- Reset Password -->
-          <button
-            type="button"
-            (click)="resetPassword.emit(user)"
-            title="Reset Password"
-            class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-          </button>
+            <!-- Edit User -->
+            <button
+              type="button"
+              (click)="editUser.emit(user)"
+              title="Edit User"
+              class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
 
-          <!-- Edit User -->
-          <button
-            type="button"
-            (click)="editUser.emit(user)"
-            title="Edit User"
-            class="p-1.5 rounded-lg text-secondary hover:text-main hover:bg-subtle transition-colors cursor-pointer"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-
-          <!-- Delete User -->
-          <button
-            type="button"
-            (click)="deleteUser.emit(user)"
-            title="Delete User"
-            class="p-1.5 rounded-lg text-secondary hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
+            <!-- Delete User -->
+            <button
+              type="button"
+              (click)="deleteUser.emit(user)"
+              title="Delete User"
+              class="p-1.5 rounded-lg text-secondary hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        } @else {
+          <span class="text-xs text-muted pr-2 select-none">—</span>
+        }
       </td>
     </ng-container>
 

@@ -31,6 +31,7 @@ import { getUserOrganizations } from '../shared/admin-resource-helper';
 })
 export class UsersListComponent implements AfterViewInit {
   readonly dataSource = input.required<MatTableDataSource<AdminUser>>();
+  readonly isSuperAdmin = input<boolean>(false);
   readonly displayedColumns = input<string[]>([
     'name',
     'email',
@@ -59,5 +60,24 @@ export class UsersListComponent implements AfterViewInit {
 
   getUserOrgs(user: AdminUser): { id?: string; name: string; slug?: string }[] {
     return getUserOrganizations(user);
+  }
+
+  getVisibleRoles(user: AdminUser): string[] {
+    const roles = user.roles || [];
+    if (this.isSuperAdmin()) {
+      return roles;
+    }
+    return roles.filter((r) => r.toUpperCase() !== 'SUPER_ADMIN');
+  }
+
+  isUserSuperAdmin(user: AdminUser): boolean {
+    return (user.roles || []).some((r) => r.toUpperCase() === 'SUPER_ADMIN');
+  }
+
+  canShowUserActions(user: AdminUser): boolean {
+    if (this.isSuperAdmin()) {
+      return true;
+    }
+    return !this.isUserSuperAdmin(user);
   }
 }

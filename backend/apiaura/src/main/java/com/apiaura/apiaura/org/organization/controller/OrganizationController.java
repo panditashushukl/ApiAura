@@ -78,7 +78,7 @@ public class OrganizationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('organization:create')")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<OrganizationResponse> create(
             @Valid @RequestBody CreateOrganizationRequest request
     ) {

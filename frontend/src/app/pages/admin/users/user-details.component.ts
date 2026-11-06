@@ -11,6 +11,7 @@ import { getUserOrganizations } from '../shared/admin-resource-helper';
 })
 export class UserDetailsComponent {
   readonly user = input.required<AdminUser>();
+  readonly isSuperAdmin = input<boolean>(false);
   readonly copiedId = input<boolean>(false);
 
   readonly copyId = output<string>();
@@ -18,5 +19,13 @@ export class UserDetailsComponent {
 
   getUserOrgs(user: AdminUser): { id?: string; name: string; slug?: string }[] {
     return getUserOrganizations(user);
+  }
+
+  getVisibleRoles(): string[] {
+    const roles = this.user().roles || [];
+    if (this.isSuperAdmin()) {
+      return roles;
+    }
+    return roles.filter((r) => r.toUpperCase() !== 'SUPER_ADMIN');
   }
 }

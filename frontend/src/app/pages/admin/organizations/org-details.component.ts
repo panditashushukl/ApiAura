@@ -21,6 +21,7 @@ export class OrgDetailsComponent {
   readonly candidateUsers = input<AdminUser[]>([]);
   readonly assignableRoles = input<AdminRole[]>([]);
   readonly invitations = input<OrganizationInvitation[]>([]);
+  readonly isSuperAdmin = input<boolean>(false);
 
   readonly assignSearch = model<string>('');
   readonly selectedUser = model<AdminUser | null>(null);
@@ -42,6 +43,25 @@ export class OrgDetailsComponent {
   readonly inviteEmail = signal<string>('');
   readonly inviteRoleId = signal<string>('');
   readonly copiedInviteId = signal<string | null>(null);
+
+  getVisibleRoles(member: AdminUser): string[] {
+    const roles = member.roles || [];
+    if (this.isSuperAdmin()) {
+      return roles;
+    }
+    return roles.filter((r) => r.toUpperCase() !== 'SUPER_ADMIN');
+  }
+
+  isMemberSuperAdmin(member: AdminUser): boolean {
+    return (member.roles || []).some((r) => r.toUpperCase() === 'SUPER_ADMIN');
+  }
+
+  canManageMember(member: AdminUser): boolean {
+    if (this.isSuperAdmin()) {
+      return true;
+    }
+    return !this.isMemberSuperAdmin(member);
+  }
 
   selectCandidate(u: AdminUser): void {
     this.selectedUser.set(u);

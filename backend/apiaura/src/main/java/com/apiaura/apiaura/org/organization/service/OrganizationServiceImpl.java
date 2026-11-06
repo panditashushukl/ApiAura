@@ -63,6 +63,13 @@ public class OrganizationServiceImpl
         organization = organizationRepository.save(organization);
 
         // Update owner's organization association
+        if (owner.getOrganizations() == null) {
+            owner.setOrganizations(new java.util.HashSet<>());
+        }
+        if (owner.getOrganization() != null) {
+            owner.getOrganizations().add(owner.getOrganization());
+        }
+        owner.getOrganizations().add(organization);
         owner.setOrganization(organization);
 
         // Assign ADMIN role if not already assigned
@@ -145,6 +152,13 @@ public class OrganizationServiceImpl
             User newOwner = userRepository.findById(request.getOwnerId())
                     .orElseThrow(() -> new ResourceNotFoundException("New owner not found: " + request.getOwnerId()));
             organization.setOwner(newOwner);
+            if (newOwner.getOrganizations() == null) {
+                newOwner.setOrganizations(new java.util.HashSet<>());
+            }
+            if (newOwner.getOrganization() != null) {
+                newOwner.getOrganizations().add(newOwner.getOrganization());
+            }
+            newOwner.getOrganizations().add(organization);
             newOwner.setOrganization(organization);
             userRepository.save(newOwner);
         }

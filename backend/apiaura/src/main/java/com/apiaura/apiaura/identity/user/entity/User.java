@@ -53,6 +53,12 @@ public class User extends BaseEntity {
     private Set<com.apiaura.apiaura.org.organization.entity.Organization> organizations = new HashSet<>();
 
     @OneToMany(
+            mappedBy = "owner",
+            fetch = FetchType.LAZY
+    )
+    private Set<com.apiaura.apiaura.org.organization.entity.Organization> ownedOrganizations = new HashSet<>();
+
+    @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,
             orphanRemoval = true

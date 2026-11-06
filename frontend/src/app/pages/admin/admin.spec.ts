@@ -818,4 +818,144 @@ describe('AdminComponent', () => {
     expect(comp.orgInvitations().some((i) => i.id === 'inv-existing')).toBe(false);
     expect(comp.feedbackMessage()).toBe('Invitation canceled successfully');
   });
+
+  it('should not show the SUPER_ADMIN role or allow super admin actions to other admins', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+    const comp = fixture.componentInstance;
+
+    // Set logged-in user as a regular ADMIN (not SUPER_ADMIN)
+    authService.currentUser.set({
+      id: 'admin-regular',
+      name: 'Regular Admin',
+      email: 'admin@company.com',
+      roles: ['ADMIN'],
+      organizationId: 'o-1',
+    });
+
+    const superAdminRole: AdminRole = {
+      id: 'r-super',
+      name: 'Super Admin Role',
+      code: 'SUPER_ADMIN',
+      systemRole: true,
+    };
+    const standardRole: AdminRole = {
+      id: 'r-member',
+      name: 'Member Role',
+      code: 'MEMBER',
+      systemRole: false,
+    };
+
+    // Mock roles response containing SUPER_ADMIN and MEMBER
+    vi.spyOn(adminService, 'getRoles').mockReturnValue(of([superAdminRole, standardRole]));
+    comp.loadRoles();
+
+    // SUPER_ADMIN role must be filtered out for non-super admins
+    expect(comp.roles().some((r) => r.code === 'SUPER_ADMIN')).toBe(false);
+    expect(comp.rolesDataSource.data.some((r) => r.code === 'SUPER_ADMIN')).toBe(false);
+    expect(comp.assignableRoles().some((r) => r.code === 'SUPER_ADMIN')).toBe(false);
+
+    // Target user is a Super Admin
+    const superAdminUser: AdminUser = {
+      id: 'u-super',
+      name: 'Root Super Admin',
+      email: 'root@aura.io',
+      status: 'ACTIVE',
+      roles: ['SUPER_ADMIN', 'ADMIN'],
+    };
+    comp.users.set([superAdminUser]);
+
+    // Check helper identifying super admin user
+    expect(comp.isSuperAdminUser(superAdminUser)).toBe(true);
+
+    // Editing super admin user must be blocked for other admins
+    comp.openEditUser(superAdminUser);
+    expect(comp.showEditUserModal()).toBe(false);
+
+    // Resetting password on super admin user must be blocked
+    comp.openResetPasswordModal(superAdminUser);
+    expect(comp.showResetPasswordModal()).toBe(false);
+
+    // Managing roles on super admin user must be blocked
+    comp.openManageUserRoles(superAdminUser);
+    expect(comp.showUserRolesModal()).toBe(false);
+
+    // Deleting super admin user must be blocked
+    comp.confirmDelete('user', superAdminUser.id, superAdminUser.name);
+    expect(comp.showDeleteModal()).toBe(false);
+
+    // Editing or deleting the SUPER_ADMIN role must be blocked
+    comp.openEditRole(superAdminRole);
+    expect(comp.showEditRoleModal()).toBe(false);
+    comp.confirmDelete('role', superAdminRole.id, superAdminRole.name);
+    expect(comp.showDeleteModal()).toBe(false);
+
+    // When the logged-in user IS a SUPER_ADMIN, actions and role visibility are unlocked
+    authService.currentUser.set({
+      id: 'super-user',
+      name: 'Super Admin',
+      email: 'super@aura.io',
+      roles: ['SUPER_ADMIN'],
+    });
+
+    comp.loadRoles();
+    expect(comp.roles().some((r) => r.code === 'SUPER_ADMIN')).toBe(true);
+    expect(comp.rolesDataSource.data.some((r) => r.code === 'SUPER_ADMIN')).toBe(true);
+
+    comp.openEditUser(superAdminUser);
+    expect(comp.showEditUserModal()).toBe(true);
+  });
+
+  it('should hide wildcard permission (*) from permissions list, unique resources, and role assignment groups', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges();
+    const comp = fixture.componentInstance;
+
+    const wildcardPerm: AdminPermission = {
+      id: 'p-wildcard',
+      name: 'All Permissions',
+      code: '*',
+      resource: '*',
+      action: '*',
+      description: 'Root wildcard bypass',
+    };
+    const regularPerm: AdminPermission = {
+      id: 'p-user-read',
+      name: 'Read Users',
+      code: 'user:read',
+      resource: 'user',
+      action: 'read',
+      description: 'View user accounts',
+    };
+
+    // When backend returns permissions including wildcard
+    vi.spyOn(adminService, 'getPermissions').mockReturnValue(of([wildcardPerm, regularPerm]));
+    comp.loadPermissions();
+
+    // Permissions signal and table datasource must not include wildcard
+    expect(comp.permissions().some((p) => p.code === '*')).toBe(false);
+    expect(comp.permissionsDataSource.data.some((p) => p.code === '*')).toBe(false);
+    expect(comp.permissions().length).toBe(1);
+    expect(comp.permissions()[0].code).toBe('user:read');
+
+    // Unique resources must not contain '*'
+    expect(comp.uniqueResources()).not.toContain('*');
+    expect(comp.uniqueResources()).toContain('user');
+
+    // Role permissions group must not include wildcard
+    comp.selectedRole.set(mockRoles[0]);
+    comp.selectedRolePermissions.set([]);
+    const groups = comp.permissionGroups();
+    expect(groups.some((g) => g.resource === '*')).toBe(false);
+    expect(groups.flatMap((g) => g.permissions).some((p) => p.code === '*')).toBe(false);
+
+    // Toggling wildcard grant should be blocked
+    const grantSpy = vi.spyOn(adminService, 'grantPermissionToRole');
+    comp.togglePermissionGrant('p-wildcard');
+    expect(grantSpy).not.toHaveBeenCalled();
+
+    // Confirm deleting wildcard permission should be blocked
+    comp.confirmDelete('permission', 'p-wildcard', 'All Permissions (*)');
+    expect(comp.showDeleteModal()).toBe(false);
+  });
 });

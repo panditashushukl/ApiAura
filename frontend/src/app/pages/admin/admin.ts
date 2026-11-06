@@ -36,6 +36,7 @@ import {
   groupRoleDetailPermissions,
   getOrgAdmin,
   getUserOrganizations,
+  isWildcardPermission,
 } from './shared/admin-resource-helper';
 
 import { AdminLayoutComponent } from './admin-layout.component';
@@ -120,7 +121,10 @@ export class AdminComponent implements OnInit {
 
   // Unique resources for permission filter
   readonly uniqueResources = computed(() => {
-    const list = this.permissions().map((p) => p.resource).filter(Boolean);
+    const list = this.permissions()
+      .filter((p) => !isWildcardPermission(p))
+      .map((p) => p.resource)
+      .filter((r): r is string => Boolean(r) && r !== '*');
     return Array.from(new Set(list)).sort();
   });
 
@@ -236,6 +240,11 @@ export class AdminComponent implements OnInit {
 
   readonly canManageOrgMembers = this.canManageMembers;
 
+  isSuperAdminUser(user?: AdminUser | null): boolean {
+    if (!user || !user.roles) return false;
+    return user.roles.some((r) => r.toUpperCase() === 'SUPER_ADMIN');
+  }
+
   readonly currentOrgMembers = computed<AdminUser[]>(() => {
     const org = this.orgDetail;
     if (!org) return [];
@@ -245,9 +254,11 @@ export class AdminComponent implements OnInit {
   readonly candidateUsersForOrg = computed<AdminUser[]>(() => {
     const org = this.orgDetail;
     if (!org) return [];
+    const isSuper = this.authService.isSuperAdmin();
     const query = this.assignUserSearch().toLowerCase().trim();
     return this.users().filter((u) => {
       if (u.organizationId === org.id) return false;
+      if (!isSuper && this.isSuperAdminUser(u)) return false;
       if (!query) return true;
       const matchName = (u.name || '').toLowerCase().includes(query);
       const matchEmail = (u.email || '').toLowerCase().includes(query);
@@ -399,6 +410,16 @@ export class AdminComponent implements OnInit {
     type: DetailType,
     item: AdminUser | AdminRole | AdminPermission | AdminOrganization,
   ): void {
+    if (type === 'user' && this.isSuperAdminUser(item as AdminUser) && !this.authService.isSuperAdmin()) {
+      return;
+    }
+    if (type === 'role' && (item as AdminRole).code?.toUpperCase() === 'SUPER_ADMIN' && !this.authService.isSuperAdmin()) {
+      return;
+    }
+    if (type === 'permission' && isWildcardPermission(item as AdminPermission)) {
+      return;
+    }
+
     this.detailType.set(type);
     this.selectedDetailItem.set(item);
     this.showDetailsPage.set(true);
@@ -596,12 +617,17 @@ export class AdminComponent implements OnInit {
       const matchesStatus =
         status === 'ALL' || user.status?.toUpperCase() === status.toUpperCase();
 
+      const isSuper = this.authService.isSuperAdmin();
+      const visibleRoles = isSuper
+        ? (user.roles || [])
+        : (user.roles || []).filter((r) => r.toUpperCase() !== 'SUPER_ADMIN');
+
       const matchesQuery =
         !query ||
         Boolean(
           user.name?.toLowerCase().includes(query) ||
             user.email?.toLowerCase().includes(query) ||
-            user.roles?.some((r) => r.toLowerCase().includes(query)) ||
+            visibleRoles.some((r) => r.toLowerCase().includes(query)) ||
             user.organizationName?.toLowerCase().includes(query) ||
             user.organizations?.some((o) => o.name?.toLowerCase().includes(query)),
         );
@@ -610,6 +636,11 @@ export class AdminComponent implements OnInit {
     };
 
     this.rolesDataSource.filterPredicate = (role: AdminRole, filter: string): boolean => {
+      const isSuper = this.authService.isSuperAdmin();
+      if (!isSuper && role.code?.toUpperCase() === 'SUPER_ADMIN') {
+        return false;
+      }
+
       const parsed = JSON.parse(filter || '{}');
       const query = (parsed.query || '').toLowerCase().trim();
       const type = parsed.type || 'ALL';
@@ -634,6 +665,10 @@ export class AdminComponent implements OnInit {
       perm: AdminPermission,
       filter: string,
     ): boolean => {
+      if (isWildcardPermission(perm)) {
+        return false;
+      }
+
       const parsed = JSON.parse(filter || '{}');
       const query = (parsed.query || '').toLowerCase().trim();
       const resource = parsed.resource || 'ALL';
@@ -731,8 +766,12 @@ export class AdminComponent implements OnInit {
     this.isLoading.set(true);
     this.adminService.getRoles().subscribe({
       next: (data) => {
-        this.roles.set(data);
-        this.rolesDataSource.data = data;
+        const isSuper = this.authService.isSuperAdmin();
+        const visibleRoles = isSuper
+          ? data
+          : data.filter((r) => r.code?.toUpperCase() !== 'SUPER_ADMIN');
+        this.roles.set(visibleRoles);
+        this.rolesDataSource.data = visibleRoles;
         this.applyRolesFilter();
         this.isLoading.set(false);
       },
@@ -755,8 +794,9 @@ export class AdminComponent implements OnInit {
     this.isLoading.set(true);
     this.adminService.getPermissions().subscribe({
       next: (data) => {
-        this.permissions.set(data);
-        this.permissionsDataSource.data = data;
+        const clean = data.filter((p) => !isWildcardPermission(p));
+        this.permissions.set(clean);
+        this.permissionsDataSource.data = clean;
         this.applyPermissionsFilter();
         this.isLoading.set(false);
       },
@@ -954,6 +994,9 @@ export class AdminComponent implements OnInit {
   removeUserFromOrg(user: AdminUser): void {
     const org = this.orgDetail;
     if (!org) return;
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
 
     this.isLoading.set(true);
     this.adminService
@@ -987,6 +1030,9 @@ export class AdminComponent implements OnInit {
 
   changeMemberRole(user: AdminUser, newRoleId: string): void {
     if (!newRoleId) return;
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.isLoading.set(true);
     this.adminService.setUserRoles(user.id, [newRoleId]).subscribe({
       next: () => {
@@ -1056,6 +1102,9 @@ export class AdminComponent implements OnInit {
   }
 
   openEditUser(user: AdminUser): void {
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.selectedUser.set(user);
     this.editUserForm.patchValue({
       name: user.name,
@@ -1126,6 +1175,9 @@ export class AdminComponent implements OnInit {
   }
 
   openResetPasswordModal(user: AdminUser): void {
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.selectedUser.set(user);
     this.resetPasswordForm.reset();
     this.showPasswordText.set(false);
@@ -1161,6 +1213,9 @@ export class AdminComponent implements OnInit {
   }
 
   toggleUserStatus(user: AdminUser): void {
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
     const nextStatus: UserStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
     this.isLoading.set(true);
     this.adminService.updateUserStatus(user.id, nextStatus).subscribe({
@@ -1176,11 +1231,18 @@ export class AdminComponent implements OnInit {
   }
 
   openManageUserRoles(user: AdminUser): void {
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.selectedUser.set(user);
     this.isLoading.set(true);
     this.adminService.getUserRoles(user.id).subscribe({
       next: (userRoles) => {
-        this.selectedUserRoles.set(userRoles);
+        const isSuper = this.authService.isSuperAdmin();
+        const visibleRoles = isSuper
+          ? userRoles
+          : userRoles.filter((r) => r.code?.toUpperCase() !== 'SUPER_ADMIN');
+        this.selectedUserRoles.set(visibleRoles);
         this.showUserRolesModal.set(true);
         this.isLoading.set(false);
       },
@@ -1198,6 +1260,14 @@ export class AdminComponent implements OnInit {
   toggleRoleAssignment(roleId: string): void {
     const user = this.selectedUser();
     if (!user) return;
+    if (this.isSuperAdminUser(user) && !this.authService.isSuperAdmin()) {
+      return;
+    }
+
+    const targetRole = this.roles().find((r) => r.id === roleId) || this.getRoleById(roleId);
+    if (targetRole?.code?.toUpperCase() === 'SUPER_ADMIN' && !this.authService.isSuperAdmin()) {
+      return;
+    }
 
     const isAssigned = this.isRoleAssignedToSelectedUser(roleId);
     this.isLoading.set(true);
@@ -1261,6 +1331,9 @@ export class AdminComponent implements OnInit {
   }
 
   openEditRole(role: AdminRole): void {
+    if (role.code?.toUpperCase() === 'SUPER_ADMIN' && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.selectedRole.set(role);
     this.editRoleForm.patchValue({
       name: role.name,
@@ -1301,6 +1374,9 @@ export class AdminComponent implements OnInit {
   }
 
   openManageRolePermissions(role: AdminRole): void {
+    if (role.code?.toUpperCase() === 'SUPER_ADMIN' && !this.authService.isSuperAdmin()) {
+      return;
+    }
     this.selectedRole.set(role);
     this.rolePermissionSearch.set('');
     this.isLoading.set(true);
@@ -1324,6 +1400,9 @@ export class AdminComponent implements OnInit {
   togglePermissionGrant(permissionId: string): void {
     const role = this.selectedRole();
     if (!role) return;
+
+    const targetPerm = this.permissions().find((p) => p.id === permissionId);
+    if (!targetPerm || isWildcardPermission(targetPerm)) return;
 
     const isGranted = this.isPermissionGrantedToRole(permissionId);
     this.isLoading.set(true);
@@ -1456,6 +1535,26 @@ export class AdminComponent implements OnInit {
     id: string,
     name: string,
   ): void {
+    if (type === 'user') {
+      const targetUser = this.users().find((u) => u.id === id);
+      if (this.isSuperAdminUser(targetUser) && !this.authService.isSuperAdmin()) {
+        return;
+      }
+    }
+    if (type === 'role') {
+      const targetRole = this.roles().find((r) => r.id === id);
+      if (!this.authService.isSuperAdmin()) {
+        if (!targetRole || targetRole.code?.toUpperCase() === 'SUPER_ADMIN' || name?.toUpperCase().includes('SUPER_ADMIN') || name?.toUpperCase().includes('SUPER ADMIN')) {
+          return;
+        }
+      }
+    }
+    if (type === 'permission') {
+      const targetPerm = this.permissions().find((p) => p.id === id);
+      if (isWildcardPermission(targetPerm) || name?.includes('*')) {
+        return;
+      }
+    }
     this.deleteTarget.set({ type, id, name });
     this.showDeleteModal.set(true);
   }

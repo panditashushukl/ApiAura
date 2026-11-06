@@ -26,6 +26,7 @@
             <app-users-list
               class="flex-1 flex flex-col min-h-0 w-full"
               [dataSource]="usersDataSource"
+              [isSuperAdmin]="authService.isSuperAdmin()"
               (viewDetails)="openDetailsPage('user', $event)"
               (editUser)="openEditUser($event)"
               (toggleStatus)="toggleUserStatus($event)"
@@ -71,6 +72,7 @@
             @if (userDetail; as user) {
               <app-user-details
                 [user]="user"
+                [isSuperAdmin]="authService.isSuperAdmin()"
                 [copiedId]="copiedId()"
                 (copyId)="copyIdToClipboard($event)"
                 (close)="closeDetailsPage()"
@@ -109,6 +111,7 @@
                 [candidateUsers]="candidateUsersForOrg()"
                 [assignableRoles]="assignableRoles()"
                 [invitations]="orgInvitations()"
+                [isSuperAdmin]="authService.isSuperAdmin()"
                 [(assignSearch)]="assignUserSearch"
                 [(selectedUser)]="selectedAssignUser"
                 [(selectedRoleId)]="selectedAssignRoleId"
@@ -164,7 +167,7 @@
     <app-manage-roles-dialog
       [isOpen]="showUserRolesModal()"
       [user]="selectedUser()"
-      [allRoles]="roles()"
+      [allRoles]="assignableRoles()"
       [userRoles]="selectedUserRoles()"
       [isLoading]="isLoading()"
       (roleToggled)="toggleRoleAssignment($event)"

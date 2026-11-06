@@ -312,6 +312,93 @@ export class AuthService {
       );
   }
 
+  updateProfile(payload: { name?: string; mobileNumber?: string }): Observable<UserProfile> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    return this.http
+      .patch<ApiResponse<UserProfile>>(`${this.baseUrl}/users/me`, payload, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((response) => {
+          if (response?.data) {
+            this.currentUser.set(response.data);
+            return response.data;
+          }
+          const current = this.currentUser();
+          if (current) {
+            const updated: UserProfile = {
+              ...current,
+              name: payload.name ?? current.name,
+              mobileNumber: payload.mobileNumber ?? current.mobileNumber,
+            };
+            this.currentUser.set(updated);
+            return updated;
+          }
+          throw new Error('User not found');
+        }),
+        catchError((error: HttpErrorResponse) => {
+          const message = this.extractErrorMessage(error, 'Failed to update profile.');
+          this.errorMessage.set(message);
+          return throwError(() => new Error(message));
+        }),
+        finalize(() => {
+          this.isLoading.set(false);
+        }),
+      );
+  }
+
+  changePassword(payload: { currentPassword: string; newPassword: string }): Observable<string> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    return this.http
+      .post<ApiResponse<void>>(`${this.baseUrl}/users/me/change-password`, payload, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((response) => response.message || 'Password changed successfully.'),
+        catchError((error: HttpErrorResponse) => {
+          const message = this.extractErrorMessage(
+            error,
+            'Failed to change password. Please check your current password.',
+          );
+          this.errorMessage.set(message);
+          return throwError(() => new Error(message));
+        }),
+        finalize(() => {
+          this.isLoading.set(false);
+        }),
+      );
+  }
+
+  createOrganization(payload: { name: string; slug: string }): Observable<UserOrganizationInfo> {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+
+    return this.http
+      .post<ApiResponse<UserOrganizationInfo>>(`${this.baseUrl}/organizations`, payload, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((response) => response.data),
+        tap((newOrg) => {
+          // Refresh user profile and organizations list so the new admin role & organisation take effect
+          this.checkAuth().subscribe();
+          this.loadUserOrganizations().subscribe();
+        }),
+        catchError((error: HttpErrorResponse) => {
+          const message = this.extractErrorMessage(error, 'Failed to create organisation.');
+          this.errorMessage.set(message);
+          return throwError(() => new Error(message));
+        }),
+        finalize(() => {
+          this.isLoading.set(false);
+        }),
+      );
+  }
+
   forgotPassword(email: string): Observable<string> {
     this.isLoading.set(true);
     this.errorMessage.set(null);

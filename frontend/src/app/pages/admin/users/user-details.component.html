@@ -121,11 +121,11 @@
     <div class="space-y-6">
       <div class="p-5 bg-surface border border-app rounded-2xl shadow-xs">
         <h3 class="text-xs font-bold text-main uppercase tracking-wider mb-3 flex items-center justify-between">
-          <span>Assigned Roles ({{ user().roles?.length || 0 }})</span>
+          <span>Assigned Roles ({{ getVisibleRoles().length }})</span>
           <span class="text-[11px] font-normal text-muted">Role-Based Access Control</span>
         </h3>
         <div class="space-y-2">
-          @for (role of (user().roles || []); track role) {
+          @for (role of getVisibleRoles(); track role) {
             <div class="flex items-center justify-between p-3 rounded-xl bg-subtle/50 border border-app">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-bhagwa-500"></span>

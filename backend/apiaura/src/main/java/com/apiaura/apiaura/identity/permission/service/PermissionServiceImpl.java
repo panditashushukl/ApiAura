@@ -18,10 +18,22 @@ public class PermissionServiceImpl implements PermissionService {
 
     private final PermissionRepository permissionRepository;
 
+    private boolean isWildcard(Permission permission) {
+        if (permission == null) {
+            return false;
+        }
+        return "*".equals(permission.getCode())
+                || "*".equals(permission.getResource())
+                || "*".equals(permission.getAction());
+    }
+
     @Override
     public PermissionResponse getById(UUID permissionId) {
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Permission not found: " + permissionId));
+        if (isWildcard(permission)) {
+            throw new ResourceNotFoundException("Permission not found: " + permissionId);
+        }
         return PermissionResponse.from(permission);
     }
 
@@ -29,6 +41,7 @@ public class PermissionServiceImpl implements PermissionService {
     public List<PermissionResponse> getAll() {
         return permissionRepository.findAll()
                 .stream()
+                .filter(p -> !isWildcard(p))
                 .map(PermissionResponse::from)
                 .toList();
     }
@@ -37,6 +50,7 @@ public class PermissionServiceImpl implements PermissionService {
     public List<PermissionResponse> getByResource(String resource) {
         return permissionRepository.findByResource(resource)
                 .stream()
+                .filter(p -> !isWildcard(p))
                 .map(PermissionResponse::from)
                 .toList();
     }
